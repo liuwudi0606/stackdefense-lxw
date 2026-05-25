@@ -18,14 +18,7 @@ CATEGORY_ORDER = [
     "其它",
 ]
 
-TOWER_TYPE_LABELS = {
-    "arrow": "箭塔",
-    "slow": "寒塔",
-    "cannon": "重炮",
-    "laser": "激光塔",
-    "wind": "风塔",
-    "barracks": "兵营",
-}
+from game.tower_labels import TOWER_TYPE_LABELS
 
 BUFF_HEADER_H = 32
 BUFF_CARD_H = 28

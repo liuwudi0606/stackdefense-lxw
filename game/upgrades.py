@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import config
 from game.stats import RunStats
+from game.tower_labels import TOWER_TYPE_LABELS, tower_damage_label, tower_label
 
 _BLUEPRINT_TOWERS = frozenset({"cannon", "laser", "wind", "barracks"})
 
@@ -146,15 +147,6 @@ def find_upgrade(pool: list[dict], card_id: str) -> dict | None:
     return None
 
 
-TOWER_TYPE_LABELS = {
-    "arrow": "箭塔",
-    "slow": "寒塔",
-    "cannon": "重炮",
-    "laser": "激光塔",
-    "wind": "风塔",
-    "barracks": "兵营",
-}
-
 # effect 字段 → 玩家可读的累计加成文案
 _EFFECT_LABELS: dict[str, str] = {
     "base_hp_mult": "地基生命",
@@ -283,7 +275,7 @@ def _preview_effect_line(stats: RunStats, key: str, val) -> str | None:
     if row is None and key == "type_damage" and isinstance(val, dict):
         parts: list[str] = []
         for tid, delta in val.items():
-            label = TOWER_TYPE_LABELS.get(tid, tid) + "伤害"
+            label = tower_damage_label(tid)
             cur = _read_stat(stats, key, tid)
             aft = cur + float(delta)
             parts.append(f"{label} {_fmt_num('tower_damage_mult', cur)} → {_fmt_num('tower_damage_mult', aft)}")
@@ -316,14 +308,14 @@ def upgrade_pick_rows(card: dict, stats: RunStats) -> list[tuple[str, str | None
         rows.append(("立即获得金币", f"+{int(effect['instant_gold'])}"))
     if "unlock_tower" in effect:
         tid = effect["unlock_tower"]
-        name = TOWER_TYPE_LABELS.get(tid, tid)
+        name = tower_label(tid)
         rows.append(("解锁建造", name))
     if effect.get("free_arrow_layer"):
         rows.append(("免费叠层", "箭塔 +1"))
 
     if "type_damage" in effect and isinstance(effect["type_damage"], dict):
         for tid, delta in effect["type_damage"].items():
-            label = TOWER_TYPE_LABELS.get(tid, tid) + "伤害"
+            label = tower_damage_label(tid)
             cur = _read_stat(stats, "type_damage", tid)
             aft = cur + float(delta)
             if cur == 0 and aft == 0:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from game.tower_labels import tower_damage_label
+
 if TYPE_CHECKING:
     from game.session import GameSession
 
@@ -87,7 +89,7 @@ def _numeric_summary(game: "GameSession") -> list[str]:
         out.append(f"全塔射程 +{int(s.tower_range_mult * 100)}%")
     for tid, v in s.type_damage.items():
         if v:
-            out.append(f"{tid}塔伤害 +{int(v * 100)}%")
+            out.append(f"{tower_damage_label(tid, game.tower_defs)} +{int(v * 100)}%")
     if s.slow_mult:
         out.append(f"寒塔减速 +{int(s.slow_mult * 100)}%")
     if s.splash_mult:

@@ -1265,7 +1265,7 @@ class UI:
                     label = f"当前·{laser_mode_label(game, t, tdef)}"
                     col = (55, 55, 62)
                 else:
-                    label = "攻击：扫射" if t.laser_mode == "sweep" else "攻击：单体"
+                    label = "攻击：扫射" if t.laser_mode == "sweep" else "攻击：单体蓄能"
                     col = (75, 90, 130) if t.laser_mode == "sweep" else (85, 75, 110)
             else:
                 label = "关闭"
