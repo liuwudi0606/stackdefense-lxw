@@ -241,12 +241,36 @@ LOADER_WATCHDOG = """
 """
 
 
+def _detect_bundle_name() -> str:
+    preferred = WEB / f"{ARCHIVE_NEW}.tar.gz"
+    if preferred.is_file():
+        return ARCHIVE_NEW
+    archives = sorted(WEB.glob("*.tar.gz"))
+    if archives:
+        return archives[0].name.removesuffix(".tar.gz")
+    return ARCHIVE_NEW
+
+
 def _build_stamp() -> str:
-    tar = WEB / f"{ARCHIVE_NEW}.tar.gz"
-    if tar.is_file():
-        st = tar.stat()
-        return f"{int(st.st_mtime)}-{st.st_size}"
+    for name in (_detect_bundle_name() + ".tar.gz",):
+        tar = WEB / name
+        if tar.is_file():
+            st = tar.stat()
+            return f"{int(st.st_mtime)}-{st.st_size}"
     return "0"
+
+
+def _sync_archive_references(text: str, bundle: str) -> tuple[str, int]:
+    n = 0
+    text, c = re.subn(r'bundle = "[^"]+"', f'bundle = "{bundle}"', text, count=1)
+    n += c
+    for stem in {ARCHIVE_OLD, "stackdefense", "stackdefense-lxw"}:
+        if stem == bundle:
+            continue
+        if stem in text:
+            text = text.replace(stem, bundle)
+            n += 1
+    return text, n
 
 
 def _inject_build_stamp(text: str) -> tuple[str, int]:
@@ -258,11 +282,17 @@ def _inject_build_stamp(text: str) -> tuple[str, int]:
     text, c = re.subn(r'BUILD_STAMP = "[^"]*"', f'BUILD_STAMP = "{stamp}"', text)
     n += c
     if "BUILD_STAMP" not in text:
-        needle = '        bundle = "stackdefense"\n'
-        insert = f'        bundle = "stackdefense"\n        BUILD_STAMP = "{stamp}"\n'
+        needle = f'        bundle = "{_detect_bundle_name()}"\n'
+        insert = f'{needle}        BUILD_STAMP = "{stamp}"\n'
         if needle in text:
             text = text.replace(needle, insert, 1)
             n += 1
+        else:
+            needle2 = '        bundle = "stackdefense"\n'
+            insert2 = f'{needle2}        BUILD_STAMP = "{stamp}"\n'
+            if needle2 in text:
+                text = text.replace(needle2, insert2, 1)
+                n += 1
     return text, n
 
 
@@ -327,18 +357,18 @@ def _dedupe_loader_watchdog(text: str) -> tuple[str, int]:
 
 
 def _rename_archives() -> int:
-    """Always replace stackdefense.* from the fresh pygbag output (folder name)."""
+    """本地中文目录名 → stackdefense；CI 上保留 pygbag 实际包名（如 stackdefense-lxw）。"""
     n = 0
     for ext in (".tar.gz", ".apk"):
-        old = WEB / f"{ARCHIVE_OLD}{ext}"
-        new = WEB / f"{ARCHIVE_NEW}{ext}"
-        if not old.is_file():
+        legacy = WEB / f"{ARCHIVE_OLD}{ext}"
+        target = WEB / f"{ARCHIVE_NEW}{ext}"
+        if not legacy.is_file():
             continue
-        if new.is_file():
-            new.unlink()
-        old.rename(new)
+        if target.is_file():
+            target.unlink()
+        legacy.rename(target)
         n += 1
-        print(f"  rename {old.name} -> {new.name}")
+        print(f"  rename {legacy.name} -> {target.name}")
     return n
 
 
@@ -348,12 +378,16 @@ def main() -> int:
         return 1
 
     _rename_archives()
+    bundle = _detect_bundle_name()
     text = INDEX.read_text(encoding="utf-8")
     changed = 0
 
     if ARCHIVE_OLD in text:
-        text = text.replace(ARCHIVE_OLD, ARCHIVE_NEW)
+        text = text.replace(ARCHIVE_OLD, bundle if bundle != ARCHIVE_OLD else ARCHIVE_NEW)
         changed += 1
+
+    text, n = _sync_archive_references(text, bundle)
+    changed += n
 
     if CDN_REMOTE in text:
         text = text.replace(CDN_REMOTE, CDN_LOCAL)
@@ -414,6 +448,26 @@ def main() -> int:
     )
     if sw_old in text:
         text = text.replace(sw_old, sw_new, 1)
+        changed += 1
+    elif "navigator.serviceWorker.register" in text and "pygbag0.9.3.js" in text:
+        text, c = re.subn(
+            r"\s*if \(navigator\.serviceWorker\)\s*\n"
+            r'\s*navigator\.serviceWorker\.register\("\./cdn/0\.9\.3/pygbag0\.9\.3\.js"\)\s*\n'
+            r"\s*else\s*\n"
+            r'\s*console\.warn\("Service workers not supported"\)',
+            "\n" + sw_new,
+            text,
+            count=1,
+        )
+        changed += c
+
+    legacy_run = "asyncio.run( custom_site() )"
+    if legacy_run in text:
+        text = text.replace(
+            legacy_run,
+            "import aio\naio.create_task(custom_site())",
+            1,
+        )
         changed += 1
 
     if "z-index: 5;" in text and "canvas.emscripten" in text:
