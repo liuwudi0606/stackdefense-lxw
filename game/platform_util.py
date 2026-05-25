@@ -11,24 +11,35 @@ def is_web() -> bool:
     return sys.platform in ("emscripten", "wasi")
 
 
+def purge_pygame_modules() -> None:
+    """移除 WASM 上 pip 装坏的不完整 pygame（缺 constants 等子模块）。"""
+    for name in list(sys.modules):
+        if name == "pygame" or name.startswith("pygame."):
+            sys.modules.pop(name, None)
+
+
 def _load_pygame():
     import importlib
-    import sys
 
-    import pygame
+    try:
+        pygame = importlib.import_module("pygame")
+        if callable(getattr(pygame, "init", None)):
+            return pygame
+    except ModuleNotFoundError:
+        purge_pygame_modules()
+        pygame = importlib.import_module("pygame")
+        if callable(getattr(pygame, "init", None)):
+            return pygame
+        raise
 
-    if callable(getattr(pygame, "init", None)):
-        return pygame
     try:
         pygame = importlib.reload(pygame)
+        if callable(getattr(pygame, "init", None)):
+            return pygame
     except Exception:
         pass
-    if callable(getattr(pygame, "init", None)):
-        return pygame
-    sys.modules.pop("pygame", None)
-    import pygame
-
-    return pygame
+    purge_pygame_modules()
+    return importlib.import_module("pygame")
 
 
 def ensure_pygame_init() -> None:
@@ -36,7 +47,11 @@ def ensure_pygame_init() -> None:
     global _pygame_ready
     if _pygame_ready:
         return
-    pygame = _load_pygame()
+    try:
+        pygame = _load_pygame()
+    except ModuleNotFoundError:
+        purge_pygame_modules()
+        raise
     init_fn = getattr(pygame, "init", None)
     if not callable(init_fn):
         return

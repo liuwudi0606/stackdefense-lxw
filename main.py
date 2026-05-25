@@ -18,21 +18,44 @@ from game.platform_util import ensure_pygame_init, is_web, web_disable_chromakey
 if sys.platform not in ("emscripten", "wasi"):
     import pygame
 
-import config
-from game.assets import SpriteBank
-from game.audio import AudioManager
-from game.buffs import meta_buff_labels
-from game.meta import MetaProgress
-from game.save_run import (
-    delete_run_save,
-    has_run_save,
-    load_saved_session,
-    save_run,
-)
-from game.session import GameSession, GameState
-from game.display import DisplayManager
-from game.ui import UI
-from game.ui_debug import DebugUI
+    import config
+    from game.assets import SpriteBank
+    from game.audio import AudioManager
+    from game.buffs import meta_buff_labels
+    from game.meta import MetaProgress
+    from game.save_run import (
+        delete_run_save,
+        has_run_save,
+        load_saved_session,
+        save_run,
+    )
+    from game.session import GameSession, GameState
+    from game.display import DisplayManager
+    from game.ui import UI
+    from game.ui_debug import DebugUI
+
+
+def _import_game_stack() -> None:
+    """网页版须在 shell.source 装好 wasm pygame-ce 后再 import 会用到 pygame 的子模块。"""
+    global config, SpriteBank, AudioManager, meta_buff_labels, MetaProgress
+    global delete_run_save, has_run_save, load_saved_session, save_run
+    global GameSession, GameState, DisplayManager, UI, DebugUI
+
+    import config
+    from game.assets import SpriteBank
+    from game.audio import AudioManager
+    from game.buffs import meta_buff_labels
+    from game.meta import MetaProgress
+    from game.save_run import (
+        delete_run_save,
+        has_run_save,
+        load_saved_session,
+        save_run,
+    )
+    from game.session import GameSession, GameState
+    from game.display import DisplayManager
+    from game.ui import UI
+    from game.ui_debug import DebugUI
 
 
 class AppState(Enum):
@@ -88,26 +111,24 @@ async def main() -> None:
     await _main_async()
 
 
-async def _install_web_pygame() -> None:
-    """WASM 上占位 pygame 无 init，须先 pip_install pygame-ce。"""
-    import aio.pep0723
-
-    await aio.pep0723.pip_install("pygame-ce")
-    await aio.pep0723.pip_install("pillow")
-    for name in list(sys.modules):
-        if name == "pygame" or name.startswith("pygame."):
-            sys.modules.pop(name, None)
-
-
 async def _main_async() -> None:
     if is_web():
         web_disable_chromakey()
-        await _install_web_pygame()
-        ensure_pygame_init()
-        import pygame
+        for _ in range(120):
+            try:
+                ensure_pygame_init()
+                import pygame
 
-        if not callable(getattr(pygame, "init", None)):
+                if callable(getattr(pygame, "init", None)):
+                    break
+            except ModuleNotFoundError:
+                from game.platform_util import purge_pygame_modules
+
+                purge_pygame_modules()
+            await asyncio.sleep(0.05)
+        else:
             raise RuntimeError("pygame-ce 未就绪：请刷新页面或重新部署网页版")
+        _import_game_stack()
     else:
         ensure_pygame_init()
         import pygame

@@ -195,10 +195,6 @@ LEGACY_CUSTOM_SITE: list[tuple[str, str]] = [
         "        while True:\n"
         "            await asyncio.sleep(3600)",
         '        await TopLevel_async_handler.start_toplevel(platform.shell, console=False)\n\n'
-        "        import aio.pep0723\n"
-        '        platform.window.infobox.innerText = "正在安装 pygame-ce…"\n'
-        '        await aio.pep0723.pip_install("pygame-ce")\n'
-        '        await aio.pep0723.pip_install("pillow")\n\n'
         "        platform.run_main(PyConfig, loaderhome=assets, loadermain=None)\n\n"
         "        wait = 0\n"
         "        while embed.counter() < 0:\n"
@@ -391,9 +387,36 @@ def _rename_archives() -> int:
     return n
 
 
-def _fix_web_startup(text: str) -> tuple[str, int]:
-    """保持官方顺序：pip → run_main(None) → preload → shell.source(main)。"""
+def _strip_broken_pip_install(text: str) -> tuple[str, int]:
+    """WASM 上 pip_install(pygame-ce) 会装残缺包，须改由 shell.source + wasm wheel 安装。"""
+    blocks = [
+        (
+            "        import aio.pep0723\n"
+            '        platform.window.infobox.innerText = "正在安装 pygame-ce…"\n'
+            '        await aio.pep0723.pip_install("pygame-ce")\n'
+            '        await aio.pep0723.pip_install("pillow")\n\n',
+            "",
+        ),
+        (
+            "        import aio.pep0723\n"
+            '        await aio.pep0723.pip_install("pygame-ce")\n'
+            '        await aio.pep0723.pip_install("pillow")\n\n',
+            "",
+        ),
+    ]
     n = 0
+    for old, new in blocks:
+        if old in text:
+            text = text.replace(old, new, 1)
+            n += 1
+    return text, n
+
+
+def _fix_web_startup(text: str) -> tuple[str, int]:
+    """官方顺序：run_main(None) → preload → shell.source(main)，勿手动 pip pygame-ce。"""
+    n = 0
+    text, c = _strip_broken_pip_install(text)
+    n += c
     if 'loadermain="main.py"' in text and "await shell.source(main" not in text:
         text = text.replace(
             'platform.run_main(PyConfig, loaderhome=assets, loadermain="main.py")',
@@ -401,16 +424,16 @@ def _fix_web_startup(text: str) -> tuple[str, int]:
             1,
         )
         n += 1
-    if "await aio.pep0723.pip_install" not in text and "async def custom_site" in text:
+    if (
+        "await TopLevel_async_handler.start_toplevel" not in text
+        and "async def custom_site" in text
+        and "if not main.is_file():" in text
+    ):
         needle = "        if not main.is_file():\n"
         insert = (
             "        await TopLevel_async_handler.start_toplevel(platform.shell, console=False)\n\n"
-            "        import aio.pep0723\n"
-            '        platform.window.infobox.innerText = "正在安装 pygame-ce…"\n'
-            '        await aio.pep0723.pip_install("pygame-ce")\n'
-            '        await aio.pep0723.pip_install("pillow")\n\n'
         )
-        if needle in text and insert.strip() not in text:
+        if insert.strip() not in text:
             text = text.replace(needle, insert + needle, 1)
             n += 1
     if "await shell.source(main" not in text and "loadermain=None" in text:

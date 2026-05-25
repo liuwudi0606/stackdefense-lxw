@@ -57,11 +57,6 @@ async def custom_site():
 
         await TopLevel_async_handler.start_toplevel(platform.shell, console=False)
 
-        import aio.pep0723
-        platform.window.infobox.innerText = "正在安装 pygame-ce…"
-        await aio.pep0723.pip_install("pygame-ce")
-        await aio.pep0723.pip_install("pillow")
-
         platform.run_main(PyConfig, loaderhome=assets, loadermain=None)
 
         wait = 0
