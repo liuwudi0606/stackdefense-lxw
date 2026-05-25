@@ -66,4 +66,5 @@ def apply_mint_tick(
     gold = calc_mint_gold(game, tdef, tower, enemy_count)
     if gold > 0:
         game.gold += gold
+        tower.mint_total_gold += gold
     return gold

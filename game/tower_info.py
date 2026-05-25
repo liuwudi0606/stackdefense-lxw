@@ -101,6 +101,25 @@ def _laser_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None
         smart = "开" if tower.laser_auto else "关"
         manual = "扫射" if tower.laser_mode == "sweep" else "单体"
         lines.append(f"智能 {smart} · 手动 {manual}")
+        if tower.laser_auto:
+            from game.laser_combat import (
+                enemies_in_laser_range,
+                laser_range,
+                laser_single_peak_dps,
+                laser_sweep_total_dps,
+            )
+
+            rng = laser_range(tdef, game.stats)
+            in_range = enemies_in_laser_range(game.enemies, rng)
+            if in_range:
+                sweep_sum = laser_sweep_total_dps(game, tower, tdef, rng, in_range)
+                single_peak = laser_single_peak_dps(
+                    game, tower, tdef, rng, in_range
+                )
+                pick = "扫射" if sweep_sum > single_peak else "单体"
+                lines.append(
+                    f"智能判定 {pick}（合计{sweep_sum:.0f} vs 峰值{single_peak:.0f}）"
+                )
 
     if tower and tower.laser_sweeping:
         lines.append("扫射范围内全部敌人")
@@ -150,8 +169,10 @@ def _mint_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None"
     if tower:
         inner_n, far_n, beyond_n, n = mint_range_breakdown(game, rng)
         est = calc_mint_gold(game, tdef, tower, n)
+        total = int(getattr(tower, "mint_total_gold", 0))
         lines = [
             "伤害 无（产金）",
+            f"累计获得 {total} 金",
             f"结算间隔 {interval:.1f}秒",
             f"塔射程 {int(rng)} · 固定内/外圈 {ring_in}/{ring_out}",
             f"内 {inner_n} · 中外环 {far_n}×50% · 超远 {beyond_n}（计 {n:.1f}）· 约 +{est} 金",

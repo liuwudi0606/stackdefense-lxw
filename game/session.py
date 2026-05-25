@@ -48,6 +48,7 @@ from game.iso import (
 from game.stats import RunStats
 from game.ui_scroll import ScrollDragState
 from game.upgrades import UpgradeManager
+from game.base_upgrades import BaseUpgradeManager
 from game.waves import WaveController
 
 
@@ -98,6 +99,7 @@ class GameSession:
         enemy_defs: dict,
         wave_data: dict,
         upgrade_pool: list,
+        base_upgrade_pool: list | None = None,
         meta_effects: dict | None = None,
         on_sound=None,
     ) -> None:
@@ -106,8 +108,14 @@ class GameSession:
         self.stats = RunStats()
         self.stats.unlocked_towers = set()
         self.endless_mode = config.ENDLESS_MODE
-        self.waves = WaveController(wave_data, endless=self.endless_mode)
-        self.upgrades = UpgradeManager(upgrade_pool)
+        self.waves = WaveController(
+            wave_data, enemy_defs=enemy_defs, endless=self.endless_mode
+        )
+        run_pool = [c for c in upgrade_pool if c.get("tag") != "base"]
+        self.upgrades = UpgradeManager(run_pool)
+        self.base_upgrades = BaseUpgradeManager(
+            base_upgrade_pool or []
+        )
         self.on_sound = on_sound or (lambda _n: None)
 
         me = meta_effects or {}
@@ -304,9 +312,23 @@ class GameSession:
     def enemy_hp_scale(self) -> float:
         mult = 1.0 + self.stats.enemy_hp_mult
         mult *= 1.0 + config.WAVE_HP_TIME_SCALE * self.waves.elapsed
+        mult *= 1.0 + config.WAVE_HP_PER_WAVE_SCALE * self.waves.waves_triggered
+        if self.waves.surge_count > 0:
+            mult *= 1.0 + config.WAVE_HP_PER_SURGE_SCALE * self.waves.surge_count
         if self.endless_mode and self.waves.all_scheduled_spawned:
             mult *= 1.0 + config.WAVE_HP_ENDLESS_PER_CYCLE * self.waves.endless_cycle
         return mult
+
+    def enemy_wave_stat_scale(self) -> tuple[float, float]:
+        """随波次与时间提高伤害与移速，返回 (damage_mult, speed_mult)。"""
+        wt = float(self.waves.waves_triggered)
+        el = self.waves.elapsed
+        dmg = 1.0 + config.WAVE_DAMAGE_PER_WAVE_SCALE * wt
+        dmg += config.WAVE_DAMAGE_TIME_SCALE * el
+        spd = 1.0 + config.WAVE_SPEED_PER_WAVE_SCALE * wt
+        spd += config.WAVE_SPEED_TIME_SCALE * el
+        spd = min(config.WAVE_SPEED_CAP_MULT, spd)
+        return dmg, spd
 
     def can_build_stack(self, build_type: str) -> bool:
         if not _is_playable_tower(self.tower_defs, build_type):
@@ -427,6 +449,15 @@ class GameSession:
                 hit = i
         return hit
 
+    def buy_base_upgrade(self, card_id: str) -> bool:
+        ok = self.base_upgrades.purchase(self, card_id)
+        if not ok:
+            _can, msg = self.base_upgrades.can_purchase(self, card_id)
+            if msg:
+                self.show_toast(msg)
+                self.on_sound("click")
+        return ok
+
     def open_base_menu(self) -> None:
         self.close_tower_ui()
         self.close_enemy_ui()
@@ -540,10 +571,10 @@ class GameSession:
         return True
 
     def tower_damage_mult(self, tower: TowerFloor) -> float:
-        return 1.0 + 0.18 * (tower.level - 1)
+        return 1.0 + config.TOWER_LEVEL_DAMAGE_PER * (tower.level - 1)
 
     def tower_fire_rate_mult(self, tower: TowerFloor) -> float:
-        return 1.0 + 0.1 * (tower.level - 1)
+        return 1.0 + config.TOWER_LEVEL_RATE_PER * (tower.level - 1)
 
     def try_build_stack(self, build_type: str | None) -> bool:
         if not build_type:
@@ -576,6 +607,7 @@ class GameSession:
 
         d = self.enemy_defs[type_id]
         hp_mult = self.enemy_hp_scale()
+        dmg_mult, spd_mult = self.enemy_wave_stat_scale()
         atk = d.get("attack", "melee")
         enemy = Enemy(
                 type_id=type_id,
@@ -583,7 +615,7 @@ class GameSession:
                 y=float(y),
                 hp=d["hp"] * hp_mult,
                 max_hp=d["hp"] * hp_mult,
-                speed=d["speed"],
+                speed=d["speed"] * spd_mult,
                 exp=d["exp"],
                 gold=d["gold"],
                 radius=d["radius"],
@@ -594,7 +626,7 @@ class GameSession:
                 laser_vuln=float(d.get("laser_vuln", 1.0)),
                 wind_resist=float(d.get("wind_resist", 1.0)),
                 attack_mode=atk,
-                damage=float(d.get("damage", 6)),
+                damage=float(d.get("damage", 6)) * dmg_mult,
                 attack_range=float(
                     d.get("attack_range", 165 if atk == "ranged" else config.BASE_RADIUS + 8)
                 ),
@@ -622,6 +654,8 @@ class GameSession:
     def _tick_waves(self, dt: float, *, advance_time: bool = True) -> None:
         for sp in self.waves.update(dt, advance_time=advance_time):
             self.spawn_enemy(sp["type"], sp["x"], sp["y"])
+        if msg := self.waves.consume_alert():
+            self.show_toast(msg, config.WAVE_SURGE_TOAST_SEC)
 
     def update_playing(self, dt: float) -> None:
         self.tick_toast(dt)

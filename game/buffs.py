@@ -29,12 +29,15 @@ def build_buff_lines(game: "GameSession") -> list[str]:
     if stacks:
         lines.append("【本局强化】")
         by_id = {c["id"]: c for c in game.upgrades.pool}
+        by_id.update({c["id"]: c for c in game.base_upgrades.pool})
         for uid in sorted(stacks, key=lambda x: by_id.get(x, {}).get("name", x)):
             card = by_id.get(uid)
             n = stacks[uid]
             if card:
                 label = f"{card['name']} x{n}" if n > 1 else card["name"]
-                lines.append(f"  {label} · {card['desc']}")
+                tag = "基地" if uid in {c["id"] for c in game.base_upgrades.pool} else ""
+                prefix = f"[{tag}] " if tag else "  "
+                lines.append(f"{prefix}{label} · {card['desc']}")
             else:
                 lines.append(f"  {uid} x{n}")
 

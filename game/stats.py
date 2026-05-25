@@ -1,5 +1,7 @@
 """运行时加成汇总（Roguelike 强化叠加）。"""
 
+import config
+
 
 class RunStats:
     def __init__(self) -> None:
@@ -82,5 +84,11 @@ class RunStats:
         return max(0.4, 1.0 + self.build_cost_mult)
 
     def xp_needed(self, level: int, base: float, growth: float) -> int:
-        need = base * (growth ** (level - 1))
-        return max(30, int(need * max(0.5, 1.0 + self.xp_need_mult)))
+        power = float(level - 1)
+        soften_from = int(getattr(config, "EXP_LEVEL_SOFTEN_FROM", 8))
+        if level > soften_from:
+            extra = level - soften_from
+            step = float(getattr(config, "EXP_LEVEL_SOFTEN_STEP", 0.92))
+            power = (soften_from - 1) + sum(step**i for i in range(extra))
+        need = base * (growth**power)
+        return max(28, int(need * max(0.5, 1.0 + self.xp_need_mult)))

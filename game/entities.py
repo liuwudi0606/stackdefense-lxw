@@ -198,6 +198,7 @@ class TowerFloor:
     laser_mode: str = "single"
     laser_auto: bool = True
     laser_sweeping: bool = False
+    mint_total_gold: int = 0
 
     def world_pos(self) -> tuple[float, float]:
         return tower_world_pos(self.floor)

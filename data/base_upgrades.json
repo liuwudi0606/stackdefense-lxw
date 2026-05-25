@@ -1,0 +1,10 @@
+[
+  {"id": "base_hp", "name": "加厚装甲", "desc": "基地生命 +20%", "rarity": 1, "cost": 55, "effect": {"base_hp_mult": 0.2}},
+  {"id": "base_regen", "name": "纳米修复", "desc": "基地每秒回复 2 点生命", "rarity": 1, "cost": 48, "effect": {"base_regen": 2}},
+  {"id": "base_thorns", "name": "反伤尖刺", "desc": "攻击基地的敌人受到 8 点反伤", "rarity": 2, "cost": 72, "effect": {"base_thorns": 8}},
+  {"id": "base_pulse", "name": "脉冲环", "desc": "基地周期脉冲；每层 +5 伤 +12 半径、-0.4 秒间隔", "rarity": 2, "cost": 85, "effect": {"base_pulse": true}, "max_stacks": 5},
+  {"id": "kill_heal", "name": "汲取协议", "desc": "每击杀回复基地 1 点生命", "rarity": 2, "cost": 65, "effect": {"kill_heal": 1}},
+  {"id": "aura_slow", "name": "基地寒场", "desc": "靠近基地的敌人减速 15%", "rarity": 2, "cost": 70, "effect": {"base_aura_slow": 0.15}},
+  {"id": "base_shield", "name": "能量护盾", "desc": "基地获得 50 点护盾（可叠加）", "rarity": 2, "cost": 78, "effect": {"base_shield": 50}},
+  {"id": "base_shield_regen", "name": "护盾充能", "desc": "基地护盾每秒自动回复 4 点（需有护盾上限；可叠加）", "rarity": 2, "cost": 68, "effect": {"base_shield_regen": 4}, "max_stacks": 5}
+]

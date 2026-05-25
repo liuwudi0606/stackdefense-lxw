@@ -39,13 +39,29 @@ def required_tower_type(card: dict) -> str | None:
 def _blueprint_weight_bonus(game: "GameSession") -> int:
     """前期、尚有未解锁塔种时提高蓝图权重。"""
     bonus = 0
-    if game.level <= 6:
+    if game.level <= 12:
         bonus += 5
-    if len(game.picked_upgrades) < 4:
+    if len(game.picked_upgrades) < 6:
         bonus += 4
     locked = sum(1 for t in _BLUEPRINT_TOWERS if t not in game.build_types)
     bonus += locked * 2
     return bonus
+
+
+def _card_base_weight(card: dict, game: "GameSession | None") -> int:
+    """稀有度越低越易出；中后期整体权重上浮。"""
+    rarity = int(card.get("rarity", 1))
+    w = max(2, 5 - rarity)
+    if not game:
+        return w
+    if game.level >= 8:
+        w += 2
+    if game.level >= 15:
+        w += 1
+    tag = card.get("tag", "")
+    if tag == "global":
+        w += 1
+    return w
 
 
 class UpgradeManager:
@@ -54,8 +70,11 @@ class UpgradeManager:
         self.choices: list[dict] = []
 
     def roll_four(self, stats: RunStats, built_types: set[str], game: "GameSession | None" = None) -> list[dict]:
-        available = []
+        available: list[dict] = []
+        fallback: list[dict] = []
         for card in self.pool:
+            if card.get("tag") == "base":
+                continue
             uid = card["id"]
             max_s = card.get("max_stacks", 99)
             if stats.upgrade_stacks.get(uid, 0) >= max_s:
@@ -66,20 +85,36 @@ class UpgradeManager:
                     continue
             req = required_tower_type(card)
             if req and game and req not in game.build_types:
+                if (
+                    game.level >= 10
+                    and not unlock
+                    and card.get("tag") == "tower"
+                ):
+                    fallback.append(card)
                 continue
             available.append(card)
 
+        if len(available) < 6 and fallback:
+            seen_fb = {c["id"] for c in available}
+            for card in fallback:
+                if card["id"] not in seen_fb:
+                    available.append(card)
+                    seen_fb.add(card["id"])
+
         weighted: list[dict] = []
         for card in available:
-            w = card.get("rarity", 1)
+            w = _card_base_weight(card, game)
             tag = card.get("tag", "")
             unlock_tower = card["effect"].get("unlock_tower")
             if unlock_tower in _BLUEPRINT_TOWERS and game:
                 w += _blueprint_weight_bonus(game)
             elif tag == "tower" and built_types:
-                w += 1
+                w += 2
             if unlock_tower in built_types:
                 w += 2
+            req = required_tower_type(card)
+            if req and game and req not in game.build_types:
+                w = max(1, w - 2)
             for _ in range(w):
                 weighted.append(card)
 
@@ -104,34 +139,38 @@ class UpgradeManager:
         return picked[:4]
 
     def apply_choice(self, card: dict, stats: RunStats, game: "GameSession") -> None:
-        uid = card["id"]
-        stats.upgrade_stacks[uid] = stats.upgrade_stacks.get(uid, 0) + 1
-        effect = card["effect"]
-        stats.apply_effect(effect)
+        apply_upgrade_card(card, stats, game)
 
-        if "instant_gold" in effect:
-            game.gold += effect["instant_gold"]
-        if "unlock_tower" in effect:
-            t = effect["unlock_tower"]
-            if t not in game.build_types:
-                game.build_types.append(t)
-        if effect.get("free_arrow_layer"):
-            game.add_free_layer("arrow")
 
-        if "base_hp_mult" in effect and effect["base_hp_mult"] != 0:
-            old_max = game.base.max_hp
-            game.base.recalc_max_hp(game)
-            if old_max > 0:
-                game.base.hp = min(
-                    game.base.max_hp,
-                    game.base.hp * (game.base.max_hp / old_max),
-                )
+def apply_upgrade_card(card: dict, stats: RunStats, game: "GameSession") -> None:
+    uid = card["id"]
+    stats.upgrade_stacks[uid] = stats.upgrade_stacks.get(uid, 0) + 1
+    effect = card["effect"]
+    stats.apply_effect(effect)
 
-        if "base_shield" in effect:
-            game.base.shield += effect["base_shield"]
+    if "instant_gold" in effect:
+        game.gold += effect["instant_gold"]
+    if "unlock_tower" in effect:
+        t = effect["unlock_tower"]
+        if t not in game.build_types:
+            game.build_types.append(t)
+    if effect.get("free_arrow_layer"):
+        game.add_free_layer("arrow")
 
-        if effect.get("base_pulse") or stats.base_pulse:
-            game.base.pulse_enabled = True
+    if "base_hp_mult" in effect and effect["base_hp_mult"] != 0:
+        old_max = game.base.max_hp
+        game.base.recalc_max_hp(game)
+        if old_max > 0:
+            game.base.hp = min(
+                game.base.max_hp,
+                game.base.hp * (game.base.max_hp / old_max),
+            )
+
+    if "base_shield" in effect:
+        game.base.shield += effect["base_shield"]
+
+    if effect.get("base_pulse") or stats.base_pulse:
+        game.base.pulse_enabled = True
 
 
 TAG_LABELS = {

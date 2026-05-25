@@ -29,13 +29,13 @@ def wind_fan_half_angle_rad(tdef: dict, tower: "TowerFloor", wind_fan_mult: floa
 
 def wind_knockback(tdef: dict, tower: "TowerFloor", wind_knockback_mult: float) -> float:
     base = tdef.get("knockback", 32)
-    level_scale = 1.0 + 0.12 * (tower.level - 1)
+    level_scale = 1.0 + 0.14 * (tower.level - 1)
     return base * level_scale * (1.0 + wind_knockback_mult)
 
 
 def wind_fire_rate(tdef: dict, tower: "TowerFloor", stats) -> float:
     rate = tdef["fire_rate"] * (1.0 + stats.tower_fire_rate_mult + stats.wind_rate_mult)
-    rate *= 1.0 + 0.1 * (tower.level - 1)
+    rate *= 1.0 + config.TOWER_LEVEL_RATE_PER * (tower.level - 1)
     return max(0.15, rate)
 
 

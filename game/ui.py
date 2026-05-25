@@ -154,8 +154,12 @@ class UI:
             lines = enemy_detail_lines(game, e)
             return ("enemy", self._detail_content_rect(stats), lines)
         if game.state == GameState.BASE_MENU:
-            stats, _close = self._base_menu_layout(game)
-            return ("base", self._detail_content_rect(stats), base_detail_lines(game))
+            _panel, stats, upgrades, _close = self._base_menu_layout(game)
+            return (
+                "base_upgrades",
+                upgrades,
+                self._base_upgrade_scroll_lines(game),
+            )
         return None
 
     def try_begin_scroll_drag(self, game: GameSession, mx: int, my: int) -> bool:
@@ -1301,15 +1305,52 @@ class UI:
             y += 32
         return action, stats, buttons
 
-    def _base_menu_layout(self, game: GameSession) -> tuple[pygame.Rect, pygame.Rect]:
+    def _base_menu_layout(
+        self, game: GameSession
+    ) -> tuple[pygame.Rect, pygame.Rect, pygame.Rect, pygame.Rect]:
         from game.camera import camera_apply
 
         bx, by = camera_apply(config.BASE_X, config.BASE_Y)
-        panel_h = min(300, config.HEIGHT - 96)
-        stats = pygame.Rect(int(bx) - 136, int(by) - panel_h - 20, 272, panel_h)
-        stats.clamp_ip(pygame.Rect(8, 8, config.WIDTH - 16, config.HEIGHT - 88))
-        close_r = pygame.Rect(stats.x + 8, stats.bottom - 40, stats.width - 16, 32)
-        return stats, close_r
+        panel_h = min(540, config.HEIGHT - 72)
+        total_w = min(580, config.WIDTH - 20)
+        panel = pygame.Rect(int(bx) - total_w // 2, int(by) - panel_h - 28, total_w, panel_h)
+        panel.clamp_ip(pygame.Rect(8, 8, config.WIDTH - 16, config.HEIGHT - 80))
+        title_h = 38
+        body_h = panel.height - title_h - 48
+        stats = pygame.Rect(panel.x + 10, panel.y + title_h, total_w // 2 - 14, body_h)
+        upgrades = pygame.Rect(
+            stats.right + 8, panel.y + title_h, panel.width - stats.width - 26, body_h
+        )
+        close_r = pygame.Rect(panel.x + 10, panel.bottom - 40, panel.width - 20, 32)
+        return panel, stats, upgrades, close_r
+
+    def _base_upgrade_scroll_lines(self, game: GameSession) -> list[str]:
+        from game.base_upgrades import base_upgrade_button_label
+
+        lines = ["【基地强化】", ""]
+        for card in sorted(game.base_upgrades.pool, key=lambda c: c.get("name", "")):
+            stacks = game.base_upgrades.stacks(game.stats, card["id"])
+            max_s = game.base_upgrades.max_stacks(card)
+            lines.append(base_upgrade_button_label(game, card))
+            lines.append(card.get("desc", ""))
+            if stacks > 0:
+                lines.append(f"  当前 Lv{stacks}" + (f" / {max_s}" if max_s < 99 else ""))
+            lines.append("")
+        return lines
+
+    def _base_menu_upgrade_buttons(
+        self, game: GameSession, upgrades: pygame.Rect, scroll_y: int
+    ) -> list[tuple[str, pygame.Rect]]:
+        row_h = 44
+        buttons: list[tuple[str, pygame.Rect]] = []
+        inner = self._scroll_inner(self._detail_content_rect(upgrades))
+        y = inner.y - scroll_y
+        for card in sorted(game.base_upgrades.pool, key=lambda c: c.get("name", "")):
+            r = pygame.Rect(upgrades.x + 4, y, upgrades.width - 8, row_h - 4)
+            if r.bottom >= upgrades.y and r.top <= upgrades.bottom:
+                buttons.append((f"base_up:{card['id']}", r))
+            y += row_h
+        return buttons
 
     def _enemy_menu_layout(self, game: GameSession, index: int) -> tuple[pygame.Rect, pygame.Rect]:
         e = game.enemies[index]
@@ -1453,9 +1494,10 @@ class UI:
         )
 
     def draw_base_menu(self, surf: pygame.Surface, game: GameSession) -> None:
+        from game.base_upgrades import base_upgrade_button_label
         from game.camera import camera_apply, view_zoom
 
-        stats, close_r = self._base_menu_layout(game)
+        panel, stats, upgrades, close_r = self._base_menu_layout(game)
         overlay = pygame.Surface((config.WIDTH, config.HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 100))
         surf.blit(overlay, (0, 0))
@@ -1466,27 +1508,84 @@ class UI:
         pygame.draw.ellipse(
             surf, (255, 220, 140), pygame.Rect(int(bx) - rw, int(by) - rh, rw * 2, rh * 2), 3
         )
-        lines = base_detail_lines(game)
-        content = self._detail_content_rect(stats, footer_h=48)
-        _total, max_s = self._scroll_metrics(lines, content)
-        scroll_y = self._apply_scroll(game, game.ui_scroll_y, max_s)
+        pygame.draw.rect(surf, (28, 32, 42), panel, border_radius=10)
+        pygame.draw.rect(surf, (150, 130, 90), panel, 2, border_radius=10)
+        title_r = pygame.Rect(panel.x + 10, panel.y + 8, panel.width - 20, 28)
+        blit_in_rect(
+            surf,
+            self.f_md,
+            "地基 · 状态与强化",
+            title_r,
+            (255, 230, 170),
+            align="center",
+            pad=4,
+        )
+
+        status_lines = base_detail_lines(game)
+        status_content = self._detail_content_rect(stats)
         self._draw_detail_panel(
             surf,
             stats,
-            "地基状态",
-            lines,
-            scroll_y,
-            border=(150, 130, 90),
+            "当前状态",
+            status_lines,
+            0,
+            border=(120, 110, 80),
             title_color=(255, 230, 170),
         )
+
+        upg_lines = self._base_upgrade_scroll_lines(game)
+        upg_content = self._detail_content_rect(upgrades)
+        _total, max_s = self._scroll_metrics(upg_lines, upg_content)
+        scroll_y = self._apply_scroll(game, game.ui_scroll_y, max_s)
+        pygame.draw.rect(surf, (32, 38, 50), upgrades, border_radius=8)
+        pygame.draw.rect(surf, (90, 130, 100), upgrades, 2, border_radius=8)
+        blit_in_rect(
+            surf,
+            self.f_sm,
+            "花金币强化",
+            pygame.Rect(upgrades.x + 8, upgrades.y + 6, upgrades.width - 16, 22),
+            (200, 230, 200),
+            pad=2,
+        )
+        inner = self._scroll_inner(upg_content)
+        clip = surf.get_clip()
+        surf.set_clip(upgrades)
+        y = inner.y - scroll_y
+        for card in sorted(game.base_upgrades.pool, key=lambda c: c.get("name", "")):
+            label = base_upgrade_button_label(game, card)
+            ok, _ = game.base_upgrades.can_purchase(game, card["id"])
+            maxed = game.base_upgrades.is_maxed(game.stats, card)
+            row = pygame.Rect(upgrades.x + 4, y, upgrades.width - 8, 40)
+            if row.bottom < upgrades.y or row.top > upgrades.bottom:
+                y += 44
+                continue
+            if maxed:
+                col = (55, 58, 62)
+            elif ok:
+                col = (55, 85, 70)
+            else:
+                col = (52, 52, 58)
+            pygame.draw.rect(surf, col, row, border_radius=4)
+            blit_in_rect(surf, self.f_sm, label, row, (235, 240, 245), pad=6)
+            y += 44
+        surf.set_clip(clip)
+        self._draw_scrollbar(surf, upgrades, scroll_y, max_s)
+
         pygame.draw.rect(surf, (60, 62, 72), close_r, border_radius=4)
         blit_in_rect(surf, self.f_sm, "关闭", close_r, (235, 238, 245), align="center", pad=6)
 
     def base_menu_hit(self, mx: int, my: int, game: GameSession) -> str | None:
-        stats, close_r = self._base_menu_layout(game)
+        _panel, stats, upgrades, close_r = self._base_menu_layout(game)
         if close_r.collidepoint(mx, my):
             return "close"
-        if stats.collidepoint(mx, my):
+        upg_lines = self._base_upgrade_scroll_lines(game)
+        upg_content = self._detail_content_rect(upgrades)
+        _total, max_s = self._scroll_metrics(upg_lines, upg_content)
+        scroll_y = self._apply_scroll(game, game.ui_scroll_y, max_s)
+        for key, rect in self._base_menu_upgrade_buttons(game, upgrades, scroll_y):
+            if rect.collidepoint(mx, my):
+                return key
+        if stats.collidepoint(mx, my) or upgrades.collidepoint(mx, my):
             return None
         return "close"
 

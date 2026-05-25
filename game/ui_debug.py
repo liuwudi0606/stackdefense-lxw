@@ -35,7 +35,7 @@ from game.ui_text import (
 
 from game.debug_buff_catalog import (
     BuffListEntry,
-    build_buff_list_entries,
+    build_debug_buff_entries,
     entry_height,
 )
 from game.upgrades import find_upgrade, upgrade_detail_lines
@@ -136,7 +136,9 @@ class DebugUI:
 
 
     def buff_entries(self, game: GameSession) -> list[BuffListEntry]:
-        return build_buff_list_entries(game.upgrades.pool)
+        return build_debug_buff_entries(
+            game.upgrades.pool, game.base_upgrades.pool
+        )
 
     def _buff_entry_y(self, entries: list[BuffListEntry], index: int) -> int:
         return sum(entry_height(entries[i]) for i in range(index))
@@ -246,7 +248,7 @@ class DebugUI:
 
             return []
 
-        card = find_upgrade(game.upgrades.pool, cid)
+        card = find_upgrade(game.upgrades.pool, cid) or game.base_upgrades.find(cid)
 
         if not card:
 
@@ -514,7 +516,7 @@ class DebugUI:
 
             return
 
-        card = find_upgrade(game.upgrades.pool, cid)
+        card = find_upgrade(game.upgrades.pool, cid) or game.base_upgrades.find(cid)
 
         if not card:
 

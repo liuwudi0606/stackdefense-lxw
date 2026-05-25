@@ -73,6 +73,66 @@ def laser_sweep_dps(game: "GameSession", tower: TowerFloor, tdef: dict) -> float
     )
 
 
+def _laser_stack_mult(game: "GameSession", tower: TowerFloor) -> float:
+    return game.tower_type_stack_mult(tower)
+
+
+def laser_single_peak_dps(
+    game: "GameSession",
+    tower: TowerFloor,
+    tdef: dict,
+    rng: float,
+    in_range: list[Enemy],
+) -> float:
+    """单体蓄能拉满时，对射程内最优目标可达到的最高有效秒伤。"""
+    if not in_range:
+        return 0.0
+    from game.tower_range_bands import band_damage_mult
+
+    cap = tdef.get("max_ramp_mult", 12.0) * (1.0 + game.stats.laser_cap_mult)
+    stack = _laser_stack_mult(game, tower)
+    nominal = (
+        tdef["base_dps"]
+        * cap
+        * game.stats.tower_damage_factor("laser")
+        * game.tower_damage_mult(tower)
+        * stack
+    )
+    best = 0.0
+    for e in in_range:
+        eff = (
+            nominal
+            * laser_damage_factor(e)
+            * band_damage_mult(config.BASE_X, config.BASE_Y, e, rng)
+        )
+        best = max(best, eff)
+    return best
+
+
+def laser_sweep_total_dps(
+    game: "GameSession",
+    tower: TowerFloor,
+    tdef: dict,
+    rng: float,
+    in_range: list[Enemy],
+) -> float:
+    """扫射模式：对射程内每个目标秒伤之和（含抗性、射程环）。"""
+    from game.tower_range_bands import band_damage_mult
+
+    if not in_range:
+        return 0.0
+    stack = _laser_stack_mult(game, tower)
+    base = laser_sweep_dps(game, tower, tdef) * stack
+    total = 0.0
+    for e in in_range:
+        total += (
+            base
+            * laser_damage_factor(e)
+            * band_damage_mult(config.BASE_X, config.BASE_Y, e, rng)
+        )
+    return total
+
+
 def laser_damage_factor(enemy: Enemy) -> float:
     return max(0.05, enemy.laser_resist * enemy.laser_vuln)
 
@@ -115,18 +175,19 @@ def enemies_in_laser_range(enemies: list[Enemy], rng: float) -> list[Enemy]:
     ]
 
 
-def laser_smart_use_sweep(in_range: list[Enemy]) -> bool:
-    """智能：怪多或血量分散时用扫射，否则单体蓄能。"""
-    n = len(in_range)
-    if n <= 1:
+def laser_smart_use_sweep(
+    game: "GameSession",
+    tower: TowerFloor,
+    tdef: dict,
+    in_range: list[Enemy],
+) -> bool:
+    """智能：扫射总秒伤 > 单体满蓄最高秒伤时用扫射，否则单体蓄能。"""
+    if not in_range:
         return False
-    if n >= 4:
-        return True
-    total_hp = sum(e.hp for e in in_range)
-    if total_hp <= 0:
-        return False
-    max_hp = max(e.hp for e in in_range)
-    return max_hp < total_hp * 0.55
+    rng = laser_range(tdef, game.stats)
+    sweep_total = laser_sweep_total_dps(game, tower, tdef, rng, in_range)
+    single_peak = laser_single_peak_dps(game, tower, tdef, rng, in_range)
+    return sweep_total > single_peak
 
 
 def laser_effective_mode(game: "GameSession", tower: TowerFloor, tdef: dict) -> str:
@@ -135,7 +196,11 @@ def laser_effective_mode(game: "GameSession", tower: TowerFloor, tdef: dict) -> 
     if tower.laser_auto:
         rng = laser_range(tdef, game.stats)
         in_range = enemies_in_laser_range(game.enemies, rng)
-        return "sweep" if laser_smart_use_sweep(in_range) else "single"
+        return (
+            "sweep"
+            if laser_smart_use_sweep(game, tower, tdef, in_range)
+            else "single"
+        )
     return "sweep" if tower.laser_mode == "sweep" else "single"
 
 

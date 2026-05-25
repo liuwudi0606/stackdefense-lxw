@@ -34,15 +34,29 @@ _ENDLESS_CLUSTER_POOL = [
 
 
 class WaveController:
-    def __init__(self, wave_data: dict, endless: bool = False) -> None:
+    def __init__(
+        self,
+        wave_data: dict,
+        enemy_defs: dict | None = None,
+        endless: bool = False,
+    ) -> None:
         self.waves = sorted(wave_data["waves"], key=lambda w: w["at"])
+        self.enemy_defs = enemy_defs or {}
         self.wave_index = 0
+        self.waves_triggered = 0
+        self.surge_count = 0
+        self.alert_message: str | None = None
         self.spawn_queue: list[tuple[float, str, dict]] = []
         self.all_scheduled_spawned = False
         self.elapsed = 0.0
         self.endless = endless
         self.endless_cycle = 0
         self._endless_cd = config.ENDLESS_INITIAL_COOLDOWN if endless else 999999.0
+
+    def consume_alert(self) -> str | None:
+        msg = self.alert_message
+        self.alert_message = None
+        return msg
 
     def set_endless_enabled(self, enabled: bool) -> None:
         """开启/关闭无尽刷怪（预定波次清完后才刷无尽怪）。"""
@@ -141,8 +155,36 @@ class WaveController:
         w = self.waves[idx]
         self.elapsed = float(w["at"])
         self.wave_index = idx
+        self.waves_triggered = idx
+        self.surge_count = idx // max(1, int(config.WAVE_SURGE_EVERY))
+        self.alert_message = None
         self.spawn_queue = []
         self.all_scheduled_spawned = False
+
+    def _enemy_tier(self, etype: str) -> str:
+        return str(self.enemy_defs.get(etype, {}).get("tier", "normal"))
+
+    def _advanced_count_mult(self, etype: str, wave_at: float, wave_num: int) -> float:
+        tier = self._enemy_tier(etype)
+        if tier == "boss":
+            return 1.0
+        t_prog = min(1.0, wave_at / 1200.0)
+        w_prog = float(wave_num) * float(config.WAVE_ELITE_COUNT_PER_WAVE)
+        if tier == "elite":
+            return (
+                1.0
+                + config.WAVE_ELITE_COUNT_BONUS
+                + w_prog
+                + t_prog * 0.18
+            )
+        if tier == "heavy":
+            return (
+                1.0
+                + config.WAVE_HEAVY_COUNT_BONUS
+                + float(wave_num) * float(config.WAVE_HEAVY_COUNT_PER_WAVE)
+                + t_prog * 0.12
+            )
+        return 1.0
 
     def _wave_count_mult(self, wave_at: float) -> float:
         full = float(getattr(config, "NORMAL_WAVE_COUNT_MULT", 1.0))
@@ -156,11 +198,19 @@ class WaveController:
         t = max(0.0, min(1.0, wave_at / ramp))
         return early + (full - early) * t
 
-    def _scale_scheduled_count(self, count: int, wave_at: float = 0.0) -> int:
+    def _scale_scheduled_count(
+        self,
+        count: int,
+        wave_at: float = 0.0,
+        etype: str | None = None,
+        wave_num: int = 0,
+    ) -> int:
         """普通模式预定波次：数量 × 倍率（开局渐升至 NORMAL_WAVE_COUNT_MULT）。"""
         if count <= 1:
             return count
         mult = self._wave_count_mult(wave_at)
+        if etype and wave_num > 0:
+            mult *= self._advanced_count_mult(etype, wave_at, wave_num)
         if mult <= 1.0:
             return count
         return max(count, int(round(count * mult)))
@@ -172,16 +222,73 @@ class WaveController:
         span = (count - 1) * interval
         return max(0.02, span / max(1, scaled - 1))
 
+    def _enqueue_cluster_batch(
+        self,
+        etype: str,
+        count: int,
+        t0: float,
+        spread: float,
+        inner: float = 0.06,
+    ) -> None:
+        angle = math.tau * random.random()
+        opts = {"cluster_angle": angle, "cluster_spread": spread}
+        for i in range(count):
+            self.spawn_queue.append((t0 + i * inner, etype, opts))
+
+    def _enqueue_wave_extras(self, w: dict, wave_num: int) -> None:
+        """在预定波次上追加少量高级怪，提高中后期威胁密度。"""
+        if wave_num < 8:
+            return
+        t0 = float(w["at"]) + 2.5
+        if wave_num >= 10 and wave_num % 2 == 0:
+            self.spawn_queue.append((t0, "elite", {}))
+        if wave_num >= 14 and wave_num % 3 == 0:
+            self.spawn_queue.append((t0 + 1.2, "brute", {}))
+        if wave_num >= 18 and wave_num % 4 == 0:
+            self.spawn_queue.append((t0 + 2.0, "archer", {}))
+        if wave_num >= 24 and wave_num % 5 == 0:
+            self.spawn_queue.append((t0 + 2.8, "tank", {}))
+        if wave_num >= 32 and wave_num % 6 == 0:
+            self.spawn_queue.append((t0 + 3.5, "wraith", {}))
+
+    def _enqueue_monster_surge(self, level: int) -> None:
+        """每 10 条预定波次追加一团怪潮（成团 + 少量精英）。"""
+        t0 = self.elapsed + 0.8
+        spread = float(config.CLUSTER_SPAWN_SPREAD)
+        grunt_n = 18 + level * 4
+        runner_n = 12 + level * 3
+        sapper_n = 8 + max(0, level - 1) * 2
+        self._enqueue_cluster_batch("grunt", grunt_n, t0, spread)
+        self._enqueue_cluster_batch("runner", runner_n, t0 + 4.0, spread)
+        self._enqueue_cluster_batch("sapper", sapper_n, t0 + 8.0, spread)
+        elite_n = 2 + level // 2
+        brute_n = 2 + level // 3
+        for j in range(elite_n):
+            self.spawn_queue.append((t0 + 12.0 + j * 1.1, "elite", {}))
+        for j in range(brute_n):
+            self.spawn_queue.append((t0 + 14.5 + j * 1.3, "brute", {}))
+        if level >= 2:
+            self._enqueue_cluster_batch(
+                "archer", 6 + level, t0 + 18.0, spread, inner=0.08
+            )
+        if level >= 3:
+            for j in range(1 + level // 4):
+                self.spawn_queue.append((t0 + 22.0 + j * 2.4, "tank", {}))
+        if level >= 5:
+            self.spawn_queue.append((t0 + 26.0, "wraith", {}))
+        self.spawn_queue.sort(key=lambda x: x[0])
+
     def _enqueue_wave(self, w: dict) -> None:
         etype = w["type"]
         t0 = float(w["at"])
+        wave_num = self.wave_index + 1
         cluster = bool(w.get("cluster", False))
         spread = self._cluster_spread(w)
 
         if cluster and "clusters" in w:
             n_clusters = int(w["clusters"])
             raw_size = int(w.get("cluster_size", w.get("count", 5)))
-            size = self._scale_scheduled_count(raw_size, t0)
+            size = self._scale_scheduled_count(raw_size, t0, etype, wave_num)
             gap = float(w.get("cluster_interval", 4.0))
             inner = self._scale_spawn_interval(
                 raw_size, size, float(w.get("interval", 0.06))
@@ -193,7 +300,7 @@ class WaveController:
                     self.spawn_queue.append((t0 + _c * gap + i * inner, etype, opts))
         elif cluster:
             raw_count = int(w["count"])
-            count = self._scale_scheduled_count(raw_count, t0)
+            count = self._scale_scheduled_count(raw_count, t0, etype, wave_num)
             interval = self._scale_spawn_interval(
                 raw_count, count, float(w.get("interval", 0.06))
             )
@@ -203,13 +310,14 @@ class WaveController:
                 self.spawn_queue.append((t0 + i * interval, etype, opts))
         else:
             raw_count = int(w["count"])
-            count = self._scale_scheduled_count(raw_count, t0)
+            count = self._scale_scheduled_count(raw_count, t0, etype, wave_num)
             interval = self._scale_spawn_interval(
                 raw_count, count, float(w.get("interval", 0.5))
             )
             for i in range(count):
                 self.spawn_queue.append((t0 + i * interval, etype, {}))
 
+        self._enqueue_wave_extras(w, wave_num)
         self.spawn_queue.sort(key=lambda x: x[0])
 
     def _spawn_from_opts(self, etype: str, opts: dict) -> dict:
@@ -237,6 +345,17 @@ class WaveController:
                 break
             self._enqueue_wave(w)
             self.wave_index += 1
+            self.waves_triggered += 1
+            if (
+                self.waves_triggered > 0
+                and self.waves_triggered % int(config.WAVE_SURGE_EVERY) == 0
+            ):
+                level = self.waves_triggered // int(config.WAVE_SURGE_EVERY)
+                self.surge_count = level
+                self._enqueue_monster_surge(level)
+                self.alert_message = (
+                    f"⚠ 怪潮来袭！（第 {self.waves_triggered} 波）"
+                )
 
         ready: list[tuple[str, dict]] = []
         remaining: list[tuple[float, str, dict]] = []

@@ -202,6 +202,7 @@ def serialize_run(game: "GameSession") -> dict:
                     if t.laser_target and t.laser_target in game.enemies
                     else None
                 ),
+                "mint_total_gold": t.mint_total_gold,
             }
             for t in game.towers
         ],
@@ -261,6 +262,8 @@ def serialize_run(game: "GameSession") -> dict:
         "waves": {
             "elapsed": game.waves.elapsed,
             "wave_index": game.waves.wave_index,
+            "waves_triggered": game.waves.waves_triggered,
+            "surge_count": game.waves.surge_count,
             "spawn_queue": _spawn_queue_to_json(game.waves.spawn_queue),
             "all_scheduled_spawned": game.waves.all_scheduled_spawned,
             "endless_cycle": game.waves.endless_cycle,
@@ -380,6 +383,7 @@ def load_run_into(game: "GameSession", data: dict) -> None:
                 laser_break_timer=float(t.get("laser_break_timer", 0.0)),
                 laser_mode=t.get("laser_mode", "single"),
                 laser_auto=bool(t.get("laser_auto", True)),
+                mint_total_gold=int(t.get("mint_total_gold", 0)),
             )
         )
 
@@ -411,6 +415,13 @@ def load_run_into(game: "GameSession", data: dict) -> None:
     w = data.get("waves", {})
     game.waves.elapsed = w.get("elapsed", 0)
     game.waves.wave_index = w.get("wave_index", 0)
+    game.waves.waves_triggered = w.get(
+        "waves_triggered", game.waves.wave_index
+    )
+    game.waves.surge_count = w.get(
+        "surge_count",
+        game.waves.waves_triggered // max(1, int(config.WAVE_SURGE_EVERY)),
+    )
     game.waves.spawn_queue = _spawn_queue_from_json(w.get("spawn_queue", []))
     game.waves.all_scheduled_spawned = w.get("all_scheduled_spawned", False)
     game.waves.endless_cycle = w.get("endless_cycle", 0)
@@ -461,6 +472,7 @@ def load_saved_session(
     enemy_defs,
     wave_data,
     upgrade_pool,
+    base_upgrade_pool=None,
     meta_effects=None,
     on_sound=None,
 ) -> "GameSession | None":
@@ -474,6 +486,7 @@ def load_saved_session(
         enemy_defs,
         wave_data,
         upgrade_pool,
+        base_upgrade_pool=base_upgrade_pool,
         meta_effects=meta_effects,
         on_sound=on_sound,
     )

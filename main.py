@@ -74,6 +74,7 @@ def new_game(
         enemy_defs=config.load_json("enemies.json"),
         wave_data=config.load_json("waves.json"),
         upgrade_pool=config.load_json("upgrades.json"),
+        base_upgrade_pool=config.load_json("base_upgrades.json"),
         meta_effects=effects,
         on_sound=audio.play,
     )
@@ -92,6 +93,7 @@ def try_load_save(meta: MetaProgress, audio: AudioManager) -> GameSession | None
         config.load_json("enemies.json"),
         config.load_json("waves.json"),
         config.load_json("upgrades.json"),
+        config.load_json("base_upgrades.json"),
         meta_effects=effects,
         on_sound=audio.play,
     )
@@ -404,6 +406,17 @@ async def _main_async() -> None:
                         game.buff_panel_open = False
                     continue
 
+                if game.state == GameState.BASE_MENU:
+                    hit = ui.base_menu_hit(mx, my, game)
+                    if hit == "close":
+                        game.close_base_ui()
+                    elif hit and hit.startswith("base_up:"):
+                        game.buy_base_upgrade(hit[8:])
+                    elif hit is None and ui.try_begin_scroll_drag(game, mx, my):
+                        continue
+                    else:
+                        continue
+
                 if ui.try_begin_scroll_drag(game, mx, my):
                     continue
 
@@ -437,11 +450,6 @@ async def _main_async() -> None:
                     action = ui.enemy_menu_hit(mx, my, game)
                     if action == "close":
                         game.close_enemy_ui()
-                    continue
-
-                if game.state == GameState.BASE_MENU:
-                    if ui.base_menu_hit(mx, my, game) == "close":
-                        game.close_base_ui()
                     continue
 
                 if game.state == GameState.TOWER_MENU:

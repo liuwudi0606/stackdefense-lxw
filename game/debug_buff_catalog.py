@@ -89,17 +89,34 @@ def _buff_card_sort_key(card: dict) -> tuple[int, str]:
 def build_buff_list_entries(pool: list[dict]) -> list[BuffListEntry]:
     buckets: dict[str, list[dict]] = {c: [] for c in CATEGORY_ORDER}
     for card in pool:
+        if card.get("tag") == "base":
+            continue
         cat = buff_category(card)
         buckets.setdefault(cat, []).append(card)
 
     entries: list[BuffListEntry] = []
     for cat in CATEGORY_ORDER:
+        if cat == "基地":
+            continue
         cards = buckets.get(cat) or []
         if not cards:
             continue
         entries.append(BuffListEntry("header", text=cat))
         for card in sorted(cards, key=_buff_card_sort_key):
             entries.append(BuffListEntry("card", card=card))
+    return entries
+
+
+def build_debug_buff_entries(
+    run_pool: list[dict], base_pool: list[dict] | None = None
+) -> list[BuffListEntry]:
+    entries = build_buff_list_entries(run_pool)
+    base_cards = list(base_pool or [])
+    if not base_cards:
+        return entries
+    entries.append(BuffListEntry("header", text="基地强化(金币)"))
+    for card in sorted(base_cards, key=_buff_card_sort_key):
+        entries.append(BuffListEntry("card", card=card))
     return entries
 
 

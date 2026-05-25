@@ -53,6 +53,15 @@ def debug_spawn_pack(game: "GameSession", count: int = 8) -> None:
 
 
 def debug_grant_upgrade(game: "GameSession", card_id: str) -> bool:
+    card = game.base_upgrades.find(card_id)
+    if card:
+        if game.base_upgrades.is_maxed(game.stats, card):
+            return False
+        from game.upgrades import apply_upgrade_card
+
+        apply_upgrade_card(card, game.stats, game)
+        game.picked_upgrades.append(card["name"])
+        return True
     card = next((c for c in game.upgrades.pool if c["id"] == card_id), None)
     if not card:
         return False

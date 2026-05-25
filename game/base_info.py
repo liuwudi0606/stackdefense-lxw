@@ -65,6 +65,7 @@ def base_detail_lines(game: "GameSession") -> list[str]:
         lines.extend(base_fx)
 
     lines.append("")
-    lines.append("说明：点选底部塔种后，点地基或塔堆、拖放或")
-    lines.append("双击塔种按钮即可叠建新层。")
+    lines.append("右侧花金币购买基地强化。")
+    lines.append("叠层：先选底部塔种，再点地基；")
+    lines.append("可拖放或双击塔种按钮建造。")
     return lines
