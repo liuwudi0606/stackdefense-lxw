@@ -77,20 +77,21 @@ def _laser_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None
     phase = laser_phase(tdef, charge)
 
     sweep_dps = laser_sweep_dps(game, tower, tdef) if tower else base
+    mode = laser_mode_label(game, tower, tdef) if tower else "单体蓄能"
     lines = [
-        f"攻击模式：{laser_mode_label(game, tower, tdef) if tower else '单体蓄能'}",
-        f"单体 {cur_dps:.1f}/秒（当前）· 满蓄 ≤ {max_dps:.1f}/秒",
-        f"扫射 {sweep_dps:.1f}/秒（固定，不蓄能）" if game.stats.laser_sweep_unlock else "",
-        f"蓄能 +{tdef.get('ramp_per_sec', 0.35) * (1 + game.stats.laser_ramp_mult) * fr:.2f} 倍率/秒",
-        f"光柱阶段 {phase}/3（{tdef.get('phase2_sec', 1)}s / {tdef.get('phase3_sec', 3)}s）",
-        "优先锁定高血量单体（单体模式）",
+        f"攻击模式 {mode}",
+        f"秒伤 {cur_dps:.1f}（当前）· 上限 {max_dps:.1f}",
+        f"扫射秒伤 {sweep_dps:.1f}（固定）" if game.stats.laser_sweep_unlock else "",
+        f"蓄能 +{tdef.get('ramp_per_sec', 0.35) * (1 + game.stats.laser_ramp_mult) * fr:.2f}/秒",
+        f"光柱阶段 {phase}/3",
+        "单体优先高血量",
     ]
     lines = [ln for ln in lines if ln]
 
     if tower and game.stats.laser_sweep_unlock:
         smart = "开" if tower.laser_auto else "关"
         manual = "扫射" if tower.laser_mode == "sweep" else "单体"
-        lines.append(f"智能切换 {smart} · 手动偏好 {manual}")
+        lines.append(f"智能 {smart} · 手动 {manual}")
 
     if tower and tower.laser_sweeping:
         lines.append("扫射范围内全部敌人")
@@ -141,7 +142,7 @@ def _wind_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None"
     return [
         "伤害 无（仅击退）",
         f"攻速 {rate:.2f}/秒",
-        f"射程 {rng}（以地基为中心）",
+        f"射程 {rng}",
         f"扇形宽度 {half_deg:.0f}°",
         f"击退力度 {kb:.0f}",
     ]
@@ -159,7 +160,7 @@ def tower_stat_lines(game: "GameSession", tower: "TowerFloor", tower_index: int 
 
         rng = int(laser_range(tdef, game.stats))
 
-        lines.insert(2, f"射程 {rng}（以地基为中心）")
+        lines.insert(2, f"射程 {rng}")
 
     elif tower.type_id == "wind":
 
@@ -195,7 +196,7 @@ def tower_stat_lines(game: "GameSession", tower: "TowerFloor", tower_index: int 
 
             f"攻速 {rate:.2f}/秒",
 
-            f"射程 {rng}（以地基为中心）",
+            f"射程 {rng}",
 
         ]
 
@@ -256,7 +257,7 @@ def tower_preview_lines(game: "GameSession", type_id: str) -> list[str]:
 
         rng = int(laser_range(tdef, game.stats))
 
-        lines.insert(2, f"射程 {rng}（以地基为中心）")
+        lines.insert(2, f"射程 {rng}")
 
         lines.append(f"建造 {game.build_cost(type_id)} 金")
 
@@ -286,7 +287,7 @@ def tower_preview_lines(game: "GameSession", type_id: str) -> list[str]:
 
             f"攻速 {rate:.2f}/秒",
 
-            f"射程 {rng}（以地基为中心）",
+            f"射程 {rng}",
 
             f"建造 {game.build_cost(type_id)} 金",
 

@@ -195,13 +195,22 @@ def expand_lines(font: pygame.font.Font, lines: list[str], max_w: int) -> list[s
 
 
 def scroll_content_height(
-    font: pygame.font.Font, lines: list[str], max_w: int, line_gap: int = 4
+    font: pygame.font.Font,
+    lines: list[str],
+    max_w: int,
+    line_gap: int = 4,
+    *,
+    wrap_lines: bool = True,
 ) -> int:
     from game.ui_scroll import meaningful_lines
 
-    expanded = expand_lines(font, meaningful_lines(lines), max_w)
-    if not expanded:
+    ml = meaningful_lines(lines)
+    if not ml:
         return 0
+    if not wrap_lines:
+        lh = font.get_linesize()
+        return len(ml) * lh + line_gap * max(0, len(ml) - 1)
+    expanded = expand_lines(font, ml, max_w)
     h = sum(font.render(ln, True, (255, 255, 255)).get_height() for ln in expanded)
     h += line_gap * max(0, len(expanded) - 1)
     return h
@@ -216,23 +225,35 @@ def blit_scroll_text(
     color: tuple[int, int, int],
     *,
     line_gap: int = 4,
+    wrap_lines: bool = True,
 ) -> int:
     """绘制可滚动正文，返回最大 scroll 偏移（无溢出时为 0）。"""
     from game.ui_scroll import clamp_scroll, meaningful_lines
 
     inner = content_rect.inflate(-4, -4)
-    expanded = expand_lines(font, meaningful_lines(lines), inner.width)
-    total = scroll_content_height(font, lines, inner.width, line_gap)
+    ml = meaningful_lines(lines)
+    total = scroll_content_height(
+        font, lines, inner.width, line_gap, wrap_lines=wrap_lines
+    )
     max_scroll = max(0, total - inner.height)
     scroll_y = clamp_scroll(scroll_y, max_scroll)
     y = inner.y - scroll_y
     old = surf.get_clip()
     surf.set_clip(content_rect)
-    for line in expanded:
-        img = font.render(line, True, color)
-        lh = img.get_height()
-        if y + lh > inner.y and y < inner.bottom:
-            surf.blit(img, (inner.x, y))
-        y += lh + line_gap
+    if wrap_lines:
+        display = expand_lines(font, ml, inner.width)
+        for line in display:
+            img = font.render(line, True, color)
+            lh = img.get_height()
+            if y + lh > inner.y and y < inner.bottom:
+                surf.blit(img, (inner.x, y))
+            y += lh + line_gap
+    else:
+        for line in ml:
+            img = fit_render(font, line, inner.width, color)
+            lh = img.get_height()
+            if y + lh > inner.y and y < inner.bottom:
+                surf.blit(img, (inner.x, y))
+            y += lh + line_gap
     surf.set_clip(old)
     return max_scroll

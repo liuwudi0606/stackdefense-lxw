@@ -118,9 +118,13 @@ class UI:
     def _scroll_inner(self, content: pygame.Rect) -> pygame.Rect:
         return content.inflate(-4, -4)
 
-    def _scroll_metrics(self, lines: list[str], content: pygame.Rect) -> tuple[int, int]:
+    def _scroll_metrics(
+        self, lines: list[str], content: pygame.Rect, *, wrap_lines: bool = False
+    ) -> tuple[int, int]:
         inner = self._scroll_inner(content)
-        total = scroll_content_height(self.f_sm, lines, inner.width)
+        total = scroll_content_height(
+            self.f_sm, lines, inner.width, wrap_lines=wrap_lines
+        )
         max_scroll = max(0, total - inner.height)
         return total, max_scroll
 
@@ -229,7 +233,15 @@ class UI:
         content = self._detail_content_rect(rect)
         max_scroll = self._scroll_metrics(lines, content)[1]
         scroll_y = clamp_scroll(scroll_y, max_scroll)
-        blit_scroll_text(surf, self.f_sm, lines, content, scroll_y, (200, 205, 220))
+        blit_scroll_text(
+            surf,
+            self.f_sm,
+            lines,
+            content,
+            scroll_y,
+            (200, 205, 220),
+            wrap_lines=False,
+        )
         self._draw_scrollbar(surf, content, scroll_y, max_scroll)
         return max_scroll
 
@@ -626,9 +638,17 @@ class UI:
         blit_in_rect(surf, self.f_sm, "×", close_r, (240, 240, 250), pad=2)
         content = pygame.Rect(panel.x + 12, panel.y + 52, panel.width - 28, panel.height - 102)
         lines = build_buff_lines(game)
-        _total, max_s = self._scroll_metrics(lines, content)
+        _total, max_s = self._scroll_metrics(lines, content, wrap_lines=True)
         scroll_y = self._apply_scroll(game, game.ui_scroll_y, max_s)
-        blit_scroll_text(surf, self.f_sm, lines, content, scroll_y, (210, 215, 230))
+        blit_scroll_text(
+            surf,
+            self.f_sm,
+            lines,
+            content,
+            scroll_y,
+            (210, 215, 230),
+            wrap_lines=True,
+        )
         self._draw_scrollbar(surf, content, scroll_y, max_s)
         foot_r = pygame.Rect(panel.x + 12, panel.bottom - 36, panel.width - 28, 28)
         hint_txt = "B/空白关闭"
