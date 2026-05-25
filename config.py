@@ -26,15 +26,18 @@ BUILD_CLICK_RADIUS = 90
 
 # 敌人生成：绕中心一圈（四面八方）
 SPAWN_RADIUS = 400
+# 成团刷怪：同批敌人入口角相同，位置在 spread 内随机散布（便于范围炮命中）
+CLUSTER_SPAWN_SPREAD = 38
 
 
 def _recompute_layout_constants() -> None:
-    global BASE_X, BASE_Y, BASE_RADIUS, BUILD_CLICK_RADIUS, SPAWN_RADIUS
+    global BASE_X, BASE_Y, BASE_RADIUS, BUILD_CLICK_RADIUS, SPAWN_RADIUS, CLUSTER_SPAWN_SPREAD
     BASE_X = WIDTH // 2
     BASE_Y = HEIGHT // 2 + (24 if PORTRAIT else 20)
     BASE_RADIUS = 40 if PORTRAIT else 42
     BUILD_CLICK_RADIUS = 82 if PORTRAIT else 90
     SPAWN_RADIUS = min(340, int(min(WIDTH, HEIGHT) * 0.42))
+    CLUSTER_SPAWN_SPREAD = max(28, int(SPAWN_RADIUS * 0.095))
 
 
 def apply_layout(portrait: bool) -> None:

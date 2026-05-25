@@ -220,6 +220,18 @@ def spawn_at_edge(angle: float | None = None) -> tuple[float, float]:
     return x, y
 
 
+def spawn_in_cluster(
+    angle: float, spread: float | None = None
+) -> tuple[float, float]:
+    """与 spawn_at_edge 同方向，在入口附近小范围散布（成团）。"""
+    if spread is None:
+        spread = float(config.CLUSTER_SPAWN_SPREAD)
+    x, y = spawn_at_edge(angle)
+    x += random.uniform(-spread, spread)
+    y += random.uniform(-spread * 0.78, spread * 0.78)
+    return x, y
+
+
 
 
 

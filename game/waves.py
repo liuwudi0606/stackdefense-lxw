@@ -1,7 +1,8 @@
+import math
 import random
 
 import config
-from game.iso import spawn_at_edge
+from game.iso import spawn_at_edge, spawn_in_cluster
 
 # 无尽阶段刷怪权重（随 cycle 解锁更强怪）
 _ENDLESS_POOL = [
@@ -23,12 +24,20 @@ _ENDLESS_POOL = [
     ("colossus", 2),
 ]
 
+# 无尽成团：偏脆皮群，方便体现范围炮
+_ENDLESS_CLUSTER_POOL = [
+    ("grunt", 40),
+    ("runner", 30),
+    ("sapper", 22),
+    ("archer", 14),
+]
+
 
 class WaveController:
     def __init__(self, wave_data: dict, endless: bool = False) -> None:
         self.waves = sorted(wave_data["waves"], key=lambda w: w["at"])
         self.wave_index = 0
-        self.spawn_queue: list[tuple[float, str]] = []
+        self.spawn_queue: list[tuple[float, str, dict]] = []
         self.all_scheduled_spawned = False
         self.elapsed = 0.0
         self.endless = endless
@@ -94,6 +103,65 @@ class WaveController:
             pool.extend([tid] * max(1, w + cycle))
         return random.choice(pool) if pool else "grunt"
 
+    def _pick_endless_cluster_type(self) -> str:
+        cycle = self.endless_cycle
+        pool = []
+        for tid, w in _ENDLESS_CLUSTER_POOL:
+            if tid == "sapper" and cycle < 3:
+                continue
+            if tid == "archer" and cycle < 2:
+                continue
+            pool.extend([tid] * max(1, w))
+        return random.choice(pool) if pool else "grunt"
+
+    def _cluster_spread(self, w: dict) -> float:
+        return float(w.get("cluster_spread", config.CLUSTER_SPAWN_SPREAD))
+
+    def _enqueue_wave(self, w: dict) -> None:
+        etype = w["type"]
+        t0 = float(w["at"])
+        cluster = bool(w.get("cluster", False))
+        spread = self._cluster_spread(w)
+
+        if cluster and "clusters" in w:
+            n_clusters = int(w["clusters"])
+            size = int(w.get("cluster_size", w.get("count", 5)))
+            gap = float(w.get("cluster_interval", 4.0))
+            inner = float(w.get("interval", 0.06))
+            for _c in range(n_clusters):
+                angle = math.tau * random.random()
+                opts = {"cluster_angle": angle, "cluster_spread": spread}
+                for i in range(size):
+                    self.spawn_queue.append((t0 + _c * gap + i * inner, etype, opts))
+        elif cluster:
+            count = int(w["count"])
+            interval = float(w.get("interval", 0.06))
+            angle = math.tau * random.random()
+            opts = {"cluster_angle": angle, "cluster_spread": spread}
+            for i in range(count):
+                self.spawn_queue.append((t0 + i * interval, etype, opts))
+        else:
+            count = int(w["count"])
+            interval = float(w.get("interval", 0.5))
+            for i in range(count):
+                self.spawn_queue.append((t0 + i * interval, etype, {}))
+
+        self.spawn_queue.sort(key=lambda x: x[0])
+
+    def _spawn_from_opts(self, etype: str, opts: dict) -> dict:
+        if opts.get("cluster_angle") is not None:
+            angle = float(opts["cluster_angle"])
+            spread = float(opts.get("cluster_spread", config.CLUSTER_SPAWN_SPREAD))
+            x, y = spawn_in_cluster(angle, spread)
+        else:
+            x, y = spawn_at_edge()
+        return {"type": etype, "x": x, "y": y}
+
+    def _endless_use_cluster(self, batch_size: int) -> bool:
+        if batch_size < 3 or self.endless_cycle < 2:
+            return False
+        return self.endless_cycle % 3 != 1
+
     def update(self, dt: float, *, advance_time: bool = True) -> list[dict]:
         if advance_time:
             self.elapsed += dt
@@ -103,40 +171,40 @@ class WaveController:
             w = self.waves[self.wave_index]
             if self.elapsed < w["at"]:
                 break
-            etype = w["type"]
-            count = w["count"]
-            interval = w.get("interval", 0.5)
-            t0 = w["at"]
-            for i in range(count):
-                self.spawn_queue.append((t0 + i * interval, etype))
-            self.spawn_queue.sort(key=lambda x: x[0])
+            self._enqueue_wave(w)
             self.wave_index += 1
 
-        ready = []
-        remaining = []
-        for t, etype in self.spawn_queue:
+        ready: list[tuple[str, dict]] = []
+        remaining: list[tuple[float, str, dict]] = []
+        for t, etype, opts in self.spawn_queue:
             if t <= self.elapsed:
-                ready.append(etype)
+                ready.append((etype, opts))
             else:
-                remaining.append((t, etype))
+                remaining.append((t, etype, opts))
         self.spawn_queue = remaining
 
-        for etype in ready:
-            x, y = spawn_at_edge()
-            spawns.append({"type": etype, "x": x, "y": y})
+        for etype, opts in ready:
+            spawns.append(self._spawn_from_opts(etype, opts))
 
         if self.wave_index >= len(self.waves) and not self.spawn_queue:
             self.all_scheduled_spawned = True
 
         if self.endless and self.all_scheduled_spawned and advance_time:
             self._endless_cd -= dt
-            # 每帧最多触发一轮，避免卡顿补帧时连刷多轮导致怪潮
             if self._endless_cd <= 0:
                 self._endless_cd = self._endless_spawn_interval()
                 self.endless_cycle += 1
-                for _ in range(self._endless_batch_size()):
-                    etype = self._pick_endless_type()
-                    x, y = spawn_at_edge()
-                    spawns.append({"type": etype, "x": x, "y": y})
+                batch = self._endless_batch_size()
+                if self._endless_use_cluster(batch):
+                    etype = self._pick_endless_cluster_type()
+                    angle = math.tau * random.random()
+                    spread = float(config.CLUSTER_SPAWN_SPREAD)
+                    opts = {"cluster_angle": angle, "cluster_spread": spread}
+                    for _ in range(batch):
+                        spawns.append(self._spawn_from_opts(etype, opts))
+                else:
+                    for _ in range(batch):
+                        etype = self._pick_endless_type()
+                        spawns.append(self._spawn_from_opts(etype, {}))
 
         return spawns

@@ -23,6 +23,31 @@ def delete_run_save() -> None:
     delete_stored(RUN_SAVE_PATH, web_key=RUN_STORAGE_KEY)
 
 
+def _spawn_queue_to_json(queue: list) -> list:
+    out = []
+    for item in queue:
+        if len(item) >= 3:
+            t, etype, opts = item[0], item[1], item[2]
+            row: list = [float(t), str(etype)]
+            if opts:
+                row.append(opts)
+            out.append(row)
+        else:
+            out.append([float(item[0]), str(item[1])])
+    return out
+
+
+def _spawn_queue_from_json(raw: list) -> list[tuple[float, str, dict]]:
+    q: list[tuple[float, str, dict]] = []
+    for item in raw:
+        if len(item) >= 3:
+            opts = item[2] if isinstance(item[2], dict) else {}
+            q.append((float(item[0]), str(item[1]), opts))
+        else:
+            q.append((float(item[0]), str(item[1]), {}))
+    return q
+
+
 def _stats_to_dict(stats) -> dict:
     return {
         "base_hp_mult": stats.base_hp_mult,
@@ -231,7 +256,7 @@ def serialize_run(game: "GameSession") -> dict:
         "waves": {
             "elapsed": game.waves.elapsed,
             "wave_index": game.waves.wave_index,
-            "spawn_queue": list(game.waves.spawn_queue),
+            "spawn_queue": _spawn_queue_to_json(game.waves.spawn_queue),
             "all_scheduled_spawned": game.waves.all_scheduled_spawned,
             "endless_cycle": game.waves.endless_cycle,
             "_endless_cd": game.waves._endless_cd,
@@ -381,9 +406,7 @@ def load_run_into(game: "GameSession", data: dict) -> None:
     w = data.get("waves", {})
     game.waves.elapsed = w.get("elapsed", 0)
     game.waves.wave_index = w.get("wave_index", 0)
-    game.waves.spawn_queue = [
-        (float(t), str(etype)) for t, etype in w.get("spawn_queue", [])
-    ]
+    game.waves.spawn_queue = _spawn_queue_from_json(w.get("spawn_queue", []))
     game.waves.all_scheduled_spawned = w.get("all_scheduled_spawned", False)
     game.waves.endless_cycle = w.get("endless_cycle", 0)
     game.waves.endless = game.endless_mode
