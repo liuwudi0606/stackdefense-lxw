@@ -235,6 +235,9 @@ async def _main_async() -> None:
                                 min(max_ds, game.debug_scroll - event.y * 28),
                             )
                             continue
+                # 详情/增益等可滚动面板优先于地图缩放与底栏横滚
+                if ui.handle_scroll_wheel(game, event.y):
+                    continue
                 gpos = display.game_mouse_pos()
                 if gpos and gpos[1] >= ui.build_bar_y(game):
                     if ui.build_bar_scroll_wheel(game, event.y):
@@ -249,8 +252,6 @@ async def _main_async() -> None:
 
                         apply_wheel_zoom(event.y, gpos[0], gpos[1])
                         continue
-                if ui.handle_scroll_wheel(game, event.y):
-                    continue
 
             if event.type == pygame.MOUSEMOTION and game and app_state == AppState.PLAYING:
                 if pygame.mouse.get_pressed()[0]:
@@ -287,7 +288,10 @@ async def _main_async() -> None:
                     gpos = _event_pos(display, event.pos)
                     if gpos and game.state == GameState.PLAYING:
                         mx, my = gpos
-                        if game.click_on_stack_build_area(mx, my):
+                        ti = game.tower_index_at(mx, my)
+                        if ti is not None:
+                            game.open_tower_menu(ti)
+                        elif game.click_on_stack_build_area(mx, my):
                             if not game.try_build_stack(game.build_drag):
                                 game.notify_build_blocked(game.build_drag)
                     game.build_drag = None
@@ -462,7 +466,7 @@ async def _main_async() -> None:
                         if game.tower_count() >= game.max_tower_floors_limit():
                             game.notify_build_blocked(tid)
                             game.selected_build = tid
-                            game.build_drag = tid
+                            game.build_drag = None
                             continue
                         clicks = getattr(event, "clicks", 1)
                         if clicks >= 2:
@@ -483,12 +487,13 @@ async def _main_async() -> None:
                         continue
                     if game.state != GameState.PLAYING:
                         continue
-                    if game.selected_build and game.click_on_stack_build_area(mx, my):
-                        game.try_build_stack(game.selected_build)
-                        continue
                     ti = game.tower_index_at(mx, my)
                     if ti is not None:
                         game.open_tower_menu(ti)
+                        game.build_drag = None
+                        continue
+                    if game.selected_build and game.click_on_stack_build_area(mx, my):
+                        game.try_build_stack(game.selected_build)
                         continue
                     ei = game.enemy_index_at(mx, my)
                     if ei is not None:

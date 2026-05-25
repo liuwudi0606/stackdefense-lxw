@@ -241,7 +241,7 @@ class UI:
         _total, max_s = self._scroll_metrics(lines, content)
         if max_s <= 0:
             self._apply_scroll(game, 0, 0)
-            return False
+            return True
         step = int(delta_y * 22)
         self._apply_scroll(game, game.ui_scroll_y - step, max_s)
         return True
