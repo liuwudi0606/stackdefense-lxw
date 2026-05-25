@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import config
+from game.storage import RUN_STORAGE_KEY, delete_stored, has_stored, read_json, write_json
 
 if TYPE_CHECKING:
     from game.session import GameSession
@@ -15,12 +16,11 @@ RUN_SAVE_PATH = config.ROOT / "run_save.json"
 
 
 def has_run_save() -> bool:
-    return RUN_SAVE_PATH.is_file()
+    return has_stored(RUN_SAVE_PATH, web_key=RUN_STORAGE_KEY)
 
 
 def delete_run_save() -> None:
-    if RUN_SAVE_PATH.is_file():
-        RUN_SAVE_PATH.unlink()
+    delete_stored(RUN_SAVE_PATH, web_key=RUN_STORAGE_KEY)
 
 
 def _stats_to_dict(stats) -> dict:
@@ -248,9 +248,7 @@ def save_run(game: "GameSession") -> None:
     if game.state in (GameState.WON, GameState.LOST):
         return
     # 通关询问界面可存档，避免误退后丢失进度
-    data = serialize_run(game)
-    with open(RUN_SAVE_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    write_json(RUN_SAVE_PATH, serialize_run(game), web_key=RUN_STORAGE_KEY)
 
 
 def load_run_into(game: "GameSession", data: dict) -> None:
@@ -438,12 +436,8 @@ def load_saved_session(
     meta_effects=None,
     on_sound=None,
 ) -> "GameSession | None":
-    if not has_run_save():
-        return None
-    try:
-        with open(RUN_SAVE_PATH, encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
+    data = read_json(RUN_SAVE_PATH, web_key=RUN_STORAGE_KEY)
+    if not data:
         return None
     from game.session import GameSession
 
