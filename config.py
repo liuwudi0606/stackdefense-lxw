@@ -119,6 +119,9 @@ LASER_CHARGE_KEEP_ON_BREAK = 0.4
 LASER_CHARGE_KEEP_ON_KILL = 0.2
 # 普通模式（预定波次）每组出怪数量倍率；Boss/单次精英（count≤1）不放大
 NORMAL_WAVE_COUNT_MULT = 3.0
+# 开局渐升：波次触发时间 0 时用 EARLY_MULT，RAMP_SEC 内线性升到 COUNT_MULT
+NORMAL_WAVE_EARLY_MULT = 1.0
+NORMAL_WAVE_EARLY_RAMP_SEC = 150.0
 # 随对战时间略微抬高敌人生命（无尽轮次额外叠加在 spawn_enemy）
 # 普通模式约 30 分钟；随时间抬高敌人生命（1800s 时约 +105%）
 WAVE_HP_TIME_SCALE = 0.00058

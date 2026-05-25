@@ -800,20 +800,12 @@ class UI:
         er = min(1, game.exp / max(1, exp_need))
         pygame.draw.rect(surf, (120, 160, 255), pygame.Rect(12, 76, int(exp_w * er), 8))
         surf.blit(self.f_sm.render(f"经验 {game.exp}/{exp_need}", True, (180, 190, 210)), (12, 88))
-        if game.stats.double_shot_chance > 0:
-            pct = int(min(100, game.stats.double_shot_chance * 100))
-            surf.blit(
-                self.f_sm.render(f"箭塔双发概率 {pct}%", True, (200, 220, 255)),
-                (12, 128),
-            )
         alive = sum(1 for e in game.enemies if e.alive)
         msg = f"场上敌人 {alive}"
         if game.endless_mode:
             msg += f"  |  无尽 第{game.waves.endless_cycle}轮"
         elif game.waves.all_scheduled_spawned:
             msg += "  |  最后一波！清空即胜"
-        else:
-            msg += "  |  四面八方来敌"
         surf.blit(self.f_sm.render(msg, True, (180, 190, 210)), (12, 108))
         btn = self.buff_panel_btn_rect()
         hot = game.buff_panel_open

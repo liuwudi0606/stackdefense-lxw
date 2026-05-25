@@ -117,11 +117,23 @@ class WaveController:
     def _cluster_spread(self, w: dict) -> float:
         return float(w.get("cluster_spread", config.CLUSTER_SPAWN_SPREAD))
 
-    def _scale_scheduled_count(self, count: int) -> int:
-        """普通模式预定波次：小怪潮数量约 ×NORMAL_WAVE_COUNT_MULT。"""
+    def _wave_count_mult(self, wave_at: float) -> float:
+        full = float(getattr(config, "NORMAL_WAVE_COUNT_MULT", 1.0))
+        if full <= 1.0:
+            return 1.0
+        early = float(getattr(config, "NORMAL_WAVE_EARLY_MULT", full))
+        ramp = float(getattr(config, "NORMAL_WAVE_EARLY_RAMP_SEC", 0.0))
+        if ramp <= 0 or wave_at >= ramp:
+            return full
+        early = min(early, full)
+        t = max(0.0, min(1.0, wave_at / ramp))
+        return early + (full - early) * t
+
+    def _scale_scheduled_count(self, count: int, wave_at: float = 0.0) -> int:
+        """普通模式预定波次：数量 × 倍率（开局渐升至 NORMAL_WAVE_COUNT_MULT）。"""
         if count <= 1:
             return count
-        mult = getattr(config, "NORMAL_WAVE_COUNT_MULT", 1.0)
+        mult = self._wave_count_mult(wave_at)
         if mult <= 1.0:
             return count
         return max(count, int(round(count * mult)))
@@ -142,7 +154,7 @@ class WaveController:
         if cluster and "clusters" in w:
             n_clusters = int(w["clusters"])
             raw_size = int(w.get("cluster_size", w.get("count", 5)))
-            size = self._scale_scheduled_count(raw_size)
+            size = self._scale_scheduled_count(raw_size, t0)
             gap = float(w.get("cluster_interval", 4.0))
             inner = self._scale_spawn_interval(
                 raw_size, size, float(w.get("interval", 0.06))
@@ -154,7 +166,7 @@ class WaveController:
                     self.spawn_queue.append((t0 + _c * gap + i * inner, etype, opts))
         elif cluster:
             raw_count = int(w["count"])
-            count = self._scale_scheduled_count(raw_count)
+            count = self._scale_scheduled_count(raw_count, t0)
             interval = self._scale_spawn_interval(
                 raw_count, count, float(w.get("interval", 0.06))
             )
@@ -164,7 +176,7 @@ class WaveController:
                 self.spawn_queue.append((t0 + i * interval, etype, opts))
         else:
             raw_count = int(w["count"])
-            count = self._scale_scheduled_count(raw_count)
+            count = self._scale_scheduled_count(raw_count, t0)
             interval = self._scale_spawn_interval(
                 raw_count, count, float(w.get("interval", 0.5))
             )
