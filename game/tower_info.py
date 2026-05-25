@@ -81,7 +81,7 @@ def _laser_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None
     lines = [
         f"攻击模式 {mode}",
         f"秒伤 {cur_dps:.1f}（当前）· 上限 {max_dps:.1f}",
-        f"扫射秒伤 {sweep_dps:.1f}（固定）" if game.stats.laser_sweep_unlock else "",
+        f"扫射 {sweep_dps:.1f}/秒" if game.stats.laser_sweep_unlock else "",
         f"蓄能 +{tdef.get('ramp_per_sec', 0.35) * (1 + game.stats.laser_ramp_mult) * fr:.2f}/秒",
         f"光柱阶段 {phase}/3",
         "单体优先高血量",

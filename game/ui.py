@@ -112,7 +112,7 @@ class UI:
 
     def _detail_content_rect(self, panel: pygame.Rect, footer_h: int = 0) -> pygame.Rect:
         return pygame.Rect(
-            panel.x + 8, panel.y + 36, panel.width - 24, max(40, panel.height - 44 - footer_h)
+            panel.x + 8, panel.y + 36, panel.width - 20, max(40, panel.height - 44 - footer_h)
         )
 
     def _scroll_inner(self, content: pygame.Rect) -> pygame.Rect:
@@ -122,9 +122,8 @@ class UI:
         self, lines: list[str], content: pygame.Rect, *, wrap_lines: bool = False
     ) -> tuple[int, int]:
         inner = self._scroll_inner(content)
-        total = scroll_content_height(
-            self.f_sm, lines, inner.width, wrap_lines=wrap_lines
-        )
+        font = self.f_xs if not wrap_lines else self.f_sm
+        total = scroll_content_height(font, lines, inner.width, wrap_lines=wrap_lines)
         max_scroll = max(0, total - inner.height)
         return total, max_scroll
 
@@ -235,7 +234,7 @@ class UI:
         scroll_y = clamp_scroll(scroll_y, max_scroll)
         blit_scroll_text(
             surf,
-            self.f_sm,
+            self.f_xs,
             lines,
             content,
             scroll_y,
@@ -892,7 +891,7 @@ class UI:
             return pygame.Rect(0, 0, 0, 0)
         bar_h = self.build_bar_height(game)
         max_h = min(240, config.HEIGHT - bar_h - 40)
-        panel = pygame.Rect(config.WIDTH // 2 - 130, self.build_bar_y(game) - max_h - 8, 260, max_h)
+        panel = pygame.Rect(config.WIDTH // 2 - 150, self.build_bar_y(game) - max_h - 8, 300, max_h)
         panel.clamp_ip(pygame.Rect(8, 8, config.WIDTH - 16, config.HEIGHT - 16))
         return panel
 
@@ -1154,7 +1153,8 @@ class UI:
         stats_h = max(220, action_h)
         h = max(action_h, stats_h)
         action = pygame.Rect(sx - 92, sy - h - 8, 184, action_h)
-        stats = pygame.Rect(action.right + 8, action.y, 200, stats_h)
+        stats_w = min(272, max(220, config.WIDTH - action.width - 40))
+        stats = pygame.Rect(action.right + 8, action.y, stats_w, stats_h)
         combined = action.union(stats)
         if combined.right > config.WIDTH - 8:
             shift = combined.right - (config.WIDTH - 8)
@@ -1183,7 +1183,7 @@ class UI:
 
         bx, by = camera_apply(config.BASE_X, config.BASE_Y)
         panel_h = min(300, config.HEIGHT - 96)
-        stats = pygame.Rect(int(bx) - 110, int(by) - panel_h - 20, 220, panel_h)
+        stats = pygame.Rect(int(bx) - 136, int(by) - panel_h - 20, 272, panel_h)
         stats.clamp_ip(pygame.Rect(8, 8, config.WIDTH - 16, config.HEIGHT - 88))
         close_r = pygame.Rect(stats.x + 8, stats.bottom - 40, stats.width - 16, 32)
         return stats, close_r
@@ -1192,7 +1192,7 @@ class UI:
         e = game.enemies[index]
         sx, sy = int(e.screen_pos()[0]), int(e.screen_pos()[1])
         action = pygame.Rect(sx + 24, sy - 100, 160, 88)
-        stats = pygame.Rect(action.right + 8, action.y, 220, min(220, config.HEIGHT - 100))
+        stats = pygame.Rect(action.right + 8, action.y, 272, min(260, config.HEIGHT - 100))
         combined = action.union(stats)
         if combined.right > config.WIDTH - 8:
             shift = combined.right - (config.WIDTH - 8)

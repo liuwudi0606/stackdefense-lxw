@@ -194,6 +194,17 @@ def expand_lines(font: pygame.font.Font, lines: list[str], max_w: int) -> list[s
     return out
 
 
+def expand_paragraph_lines(font: pygame.font.Font, lines: list[str], max_w: int) -> list[str]:
+    """每条属性独立换行，不截断省略号；过长时仅在同一属性内折行。"""
+    from game.ui_scroll import meaningful_lines
+
+    out: list[str] = []
+    for line in meaningful_lines(lines):
+        wrapped = wrap_lines(font, line, max_w)
+        out.extend(wrapped if wrapped else [line])
+    return out
+
+
 def scroll_content_height(
     font: pygame.font.Font,
     lines: list[str],
@@ -208,8 +219,12 @@ def scroll_content_height(
     if not ml:
         return 0
     if not wrap_lines:
-        lh = font.get_linesize()
-        return len(ml) * lh + line_gap * max(0, len(ml) - 1)
+        expanded = expand_paragraph_lines(font, ml, max_w)
+        if not expanded:
+            return 0
+        h = sum(font.render(ln, True, (255, 255, 255)).get_height() for ln in expanded)
+        h += line_gap * max(0, len(expanded) - 1)
+        return h
     expanded = expand_lines(font, ml, max_w)
     h = sum(font.render(ln, True, (255, 255, 255)).get_height() for ln in expanded)
     h += line_gap * max(0, len(expanded) - 1)
@@ -249,8 +264,8 @@ def blit_scroll_text(
                 surf.blit(img, (inner.x, y))
             y += lh + line_gap
     else:
-        for line in ml:
-            img = fit_render(font, line, inner.width, color)
+        for line in expand_paragraph_lines(font, ml, inner.width):
+            img = font.render(line, True, color)
             lh = img.get_height()
             if y + lh > inner.y and y < inner.bottom:
                 surf.blit(img, (inner.x, y))
