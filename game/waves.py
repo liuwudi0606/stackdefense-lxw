@@ -117,6 +117,22 @@ class WaveController:
     def _cluster_spread(self, w: dict) -> float:
         return float(w.get("cluster_spread", config.CLUSTER_SPAWN_SPREAD))
 
+    def _scale_scheduled_count(self, count: int) -> int:
+        """普通模式预定波次：小怪潮数量约 ×NORMAL_WAVE_COUNT_MULT。"""
+        if count <= 1:
+            return count
+        mult = getattr(config, "NORMAL_WAVE_COUNT_MULT", 1.0)
+        if mult <= 1.0:
+            return count
+        return max(count, int(round(count * mult)))
+
+    def _scale_spawn_interval(self, count: int, scaled: int, interval: float) -> float:
+        """数量放大后缩短间隔，使单波出怪总时长与原版接近。"""
+        if interval <= 0 or scaled <= 1 or count <= 1:
+            return interval
+        span = (count - 1) * interval
+        return max(0.02, span / max(1, scaled - 1))
+
     def _enqueue_wave(self, w: dict) -> None:
         etype = w["type"]
         t0 = float(w["at"])
@@ -125,24 +141,33 @@ class WaveController:
 
         if cluster and "clusters" in w:
             n_clusters = int(w["clusters"])
-            size = int(w.get("cluster_size", w.get("count", 5)))
+            raw_size = int(w.get("cluster_size", w.get("count", 5)))
+            size = self._scale_scheduled_count(raw_size)
             gap = float(w.get("cluster_interval", 4.0))
-            inner = float(w.get("interval", 0.06))
+            inner = self._scale_spawn_interval(
+                raw_size, size, float(w.get("interval", 0.06))
+            )
             for _c in range(n_clusters):
                 angle = math.tau * random.random()
                 opts = {"cluster_angle": angle, "cluster_spread": spread}
                 for i in range(size):
                     self.spawn_queue.append((t0 + _c * gap + i * inner, etype, opts))
         elif cluster:
-            count = int(w["count"])
-            interval = float(w.get("interval", 0.06))
+            raw_count = int(w["count"])
+            count = self._scale_scheduled_count(raw_count)
+            interval = self._scale_spawn_interval(
+                raw_count, count, float(w.get("interval", 0.06))
+            )
             angle = math.tau * random.random()
             opts = {"cluster_angle": angle, "cluster_spread": spread}
             for i in range(count):
                 self.spawn_queue.append((t0 + i * interval, etype, opts))
         else:
-            count = int(w["count"])
-            interval = float(w.get("interval", 0.5))
+            raw_count = int(w["count"])
+            count = self._scale_scheduled_count(raw_count)
+            interval = self._scale_spawn_interval(
+                raw_count, count, float(w.get("interval", 0.5))
+            )
             for i in range(count):
                 self.spawn_queue.append((t0 + i * interval, etype, {}))
 
