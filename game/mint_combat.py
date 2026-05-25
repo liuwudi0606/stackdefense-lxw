@@ -23,25 +23,35 @@ def mint_interval(tdef: dict, tower: "TowerFloor", stats) -> float:
     return base * mult * level_bonus
 
 
-def count_enemies_in_mint_range(game: "GameSession", rng: float) -> int:
-    ex, ey = config.BASE_X, config.BASE_Y
-    return sum(
-        1 for e in game.enemies if e.alive and dist(ex, ey, e.x, e.y) <= rng
+def count_enemies_in_mint_range(game: "GameSession", rng: float) -> float:
+    from game.tower_range_bands import count_enemies_weighted
+
+    *_, effective = count_enemies_weighted(
+        config.BASE_X, config.BASE_Y, game.enemies, rng
     )
+    return effective
+
+
+def mint_range_breakdown(game: "GameSession", rng: float) -> tuple[int, int, int, float]:
+    from game.tower_range_bands import count_enemies_weighted
+
+    return count_enemies_weighted(config.BASE_X, config.BASE_Y, game.enemies, rng)
 
 
 # 囤积红利：超过此人数后，每多 1 名敌人享受 hoard 加成
 MINT_HOARD_MIN_ENEMIES = 3
 
 
-def calc_mint_gold(game: "GameSession", tdef: dict, tower: "TowerFloor", enemy_count: int) -> int:
+def calc_mint_gold(
+    game: "GameSession", tdef: dict, tower: "TowerFloor", enemy_count: float
+) -> int:
     base = float(tdef.get("mint_base", 1))
     per = float(tdef.get("mint_per_enemy", 4)) * (1.0 + game.stats.mint_yield_mult)
     cap = float(tdef.get("mint_cap", 48)) * (1.0 + game.stats.mint_cap_mult)
     stack = game.tower_type_stack_mult(tower)
     raw = (base + per * enemy_count) * stack
     hoard = game.stats.mint_hoard_mult
-    if hoard > 0 and enemy_count > MINT_HOARD_MIN_ENEMIES:
+    if hoard > 0 and enemy_count > MINT_HOARD_MIN_ENEMIES + 0.01:
         overflow = enemy_count - MINT_HOARD_MIN_ENEMIES
         raw += per * overflow * hoard * stack
     raw = min(cap, raw)

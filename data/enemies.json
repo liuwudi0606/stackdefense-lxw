@@ -127,12 +127,14 @@
     "radius": 28,
     "color": [255, 40, 40],
     "wind_resist": 0.35,
+    "attack_cleave": {"radius": 82, "guard_damage_mult": 0.72, "base_splash_mult": 0.3},
     "skills": [
       {"id": "enrage", "hp_below": 0.48, "damage_mult": 1.45, "speed_mult": 1.28, "rate_mult": 1.12},
-      {"id": "ground_slam", "interval": 9.0, "radius": 135, "damage": 20}
+      {"id": "shockwave", "interval": 8.5, "radius": 125, "guard_damage": 18, "base_damage": 14},
+      {"id": "guard_siege", "interval": 14.0, "min_guards": 6, "radius": 155, "guard_damage": 20, "base_damage": 12}
     ],
-    "trait": "中期 Boss：半血狂暴并周期震地。",
-    "skill": "狂暴(<48%血) · 震地20伤/9秒"
+    "trait": "分裂斩清护卫；周期冲击波与卫压突破兵营防线。",
+    "skill": "分裂斩 · 冲击波 · 卫压(≥6护卫)"
   },
   "shielded": {
     "name": "护盾憎恶",
@@ -182,12 +184,15 @@
     "radius": 30,
     "color": [200, 50, 50],
     "wind_resist": 0.3,
+    "attack_cleave": {"radius": 95, "guard_damage_mult": 0.78, "base_splash_mult": 0.35},
     "skills": [
       {"id": "enrage", "hp_below": 0.5, "damage_mult": 1.5, "speed_mult": 1.3, "rate_mult": 1.15},
-      {"id": "ground_slam", "interval": 7.5, "radius": 150, "damage": 26}
+      {"id": "shockwave", "interval": 6.5, "radius": 140, "guard_damage": 24, "base_damage": 18},
+      {"id": "ground_slam", "interval": 10.0, "radius": 150, "damage": 22, "guard_damage": 16},
+      {"id": "guard_siege", "interval": 12.0, "min_guards": 5, "radius": 165, "guard_damage": 28, "base_damage": 16}
     ],
-    "trait": "强力近战 Boss，震地频率高。",
-    "skill": "狂暴 · 震地26伤/7.5秒"
+    "trait": "强分裂与双震技能，护卫密集时发动卫压。",
+    "skill": "分裂斩 · 冲击波/震地 · 卫压"
   },
   "hive_matron": {
     "name": "巢母",
@@ -202,13 +207,15 @@
     "gold": 90,
     "radius": 29,
     "color": [120, 200, 80],
+    "attack_cleave": {"radius": 75, "guard_damage_mult": 0.6, "base_splash_mult": 0.22},
     "skills": [
       {"id": "regen", "hp_per_sec_ratio": 0.009},
+      {"id": "shockwave", "interval": 9.0, "radius": 130, "guard_damage": 20, "base_damage": 10},
       {"id": "summon_grunt", "interval": 12.0, "spawn": "grunt", "count": 4, "cap": 100},
       {"id": "summon_runner", "interval": 18.0, "spawn": "runner", "count": 3, "cap": 100}
     ],
-    "trait": "持续再生并召唤杂兵/疾行。",
-    "skill": "再生 · 双轨召唤"
+    "trait": "召唤杂兵的同时用冲击波打散护卫阵型。",
+    "skill": "分裂斩 · 冲击波 · 双轨召唤"
   },
   "storm_herald": {
     "name": "雷使",
@@ -225,11 +232,12 @@
     "radius": 27,
     "color": [80, 160, 255],
     "skills": [
-      {"id": "lightning", "interval": 6.0, "radius": 9999, "damage": 24},
+      {"id": "lightning", "interval": 6.0, "radius": 9999, "damage": 22, "guard_damage": 14, "guard_radius": 120},
+      {"id": "shockwave", "interval": 11.0, "radius": 115, "guard_damage": 16, "base_damage": 8},
       {"id": "enrage", "hp_below": 0.4, "damage_mult": 1.35, "speed_mult": 1.15, "rate_mult": 1.2}
     ],
-    "trait": "远程 Boss，周期雷击基地（无需贴近）。",
-    "skill": "雷击24伤/6秒 · 低血狂暴"
+    "trait": "雷击基地并震伤附近护卫，无需贴近。",
+    "skill": "雷击+护卫溅射 · 冲击波"
   },
   "iron_titan": {
     "name": "铁卫",
@@ -246,13 +254,15 @@
     "color": [90, 90, 120],
     "laser_resist": 0.52,
     "wind_resist": 0.22,
+    "attack_cleave": {"radius": 88, "guard_damage_mult": 0.7, "base_splash_mult": 0.32},
     "skills": [
       {"id": "enrage", "hp_below": 0.55, "damage_mult": 1.4, "speed_mult": 1.22},
-      {"id": "ground_slam", "interval": 10.0, "radius": 145, "damage": 22},
+      {"id": "ground_slam", "interval": 9.0, "radius": 145, "damage": 20, "guard_damage": 18},
+      {"id": "shockwave", "interval": 7.0, "radius": 120, "guard_damage": 22, "base_damage": 12},
       {"id": "regen", "hp_per_sec_ratio": 0.004}
     ],
-    "trait": "超厚护甲，双抗，慢速推进。",
-    "skill": "双抗 · 震地 · 缓慢再生"
+    "trait": "厚甲推进，分裂斩与双范围技消磨护卫。",
+    "skill": "分裂斩 · 震地/冲击波 · 再生"
   },
   "colossus": {
     "name": "巨像",
@@ -269,12 +279,15 @@
     "color": [180, 60, 220],
     "laser_vuln": 1.3,
     "wind_resist": 0.08,
+    "attack_cleave": {"radius": 105, "guard_damage_mult": 0.85, "base_splash_mult": 0.4},
     "skills": [
       {"id": "regen", "hp_per_sec_ratio": 0.005},
-      {"id": "ground_slam", "interval": 11.0, "radius": 160, "damage": 28},
+      {"id": "shockwave", "interval": 7.5, "radius": 155, "guard_damage": 30, "base_damage": 20},
+      {"id": "ground_slam", "interval": 10.0, "radius": 165, "damage": 26, "guard_damage": 24},
+      {"id": "guard_siege", "interval": 16.0, "min_guards": 4, "radius": 175, "guard_damage": 35, "base_damage": 22},
       {"id": "enrage", "hp_below": 0.35, "damage_mult": 1.55, "speed_mult": 1.35, "rate_mult": 1.1}
     ],
-    "trait": "终局 Boss：激光易伤、风抗极高、震地与再生。",
-    "skill": "再生 · 震地28伤 · 低血狂暴"
+    "trait": "终局首领：大范围分裂与卫压，专门克制护卫海。",
+    "skill": "强分裂斩 · 冲击波/震地 · 卫压"
   }
 }

@@ -723,7 +723,10 @@ class GameSession:
         tower.laser_break_timer = 0.0
         tower.laser_charge += dt
         stack = self.tower_type_stack_mult(tower)
-        dps = laser_dps(self, tower, tdef) * laser_damage_factor(cur) * stack
+        from game.tower_range_bands import band_damage_mult
+
+        band = band_damage_mult(config.BASE_X, config.BASE_Y, cur, rng)
+        dps = laser_dps(self, tower, tdef) * laser_damage_factor(cur) * stack * band
         if dps > 0:
             cur.take_damage(dps * dt)
             self._laser_hit_fx_cd = max(0.0, self._laser_hit_fx_cd - dt)
@@ -751,8 +754,11 @@ class GameSession:
         stack = self.tower_type_stack_mult(tower)
         base_dps = laser_sweep_dps(self, tower, tdef) * stack
         hit_any = False
+        from game.tower_range_bands import band_damage_mult
+
         for e in in_range:
-            dps = base_dps * laser_damage_factor(e)
+            band = band_damage_mult(config.BASE_X, config.BASE_Y, e, rng)
+            dps = base_dps * laser_damage_factor(e) * band
             if dps <= 0:
                 continue
             e.take_damage(dps * dt)
@@ -785,12 +791,16 @@ class GameSession:
             return
         half = wind_fan_half_angle_rad(tdef, tower, self.stats.wind_fan_mult)
         aim = iso_angle(config.BASE_X, config.BASE_Y, target.x, target.y)
-        hits = enemies_in_fan(config.BASE_X, config.BASE_Y, aim, rng, half, self.enemies)
+        hits = enemies_in_fan(
+            config.BASE_X, config.BASE_Y, aim, rng, half, self.enemies
+        )
         if not hits:
             return
         tower.cooldown = 1.0 / wind_fire_rate(tdef, tower, self.stats)
         force = wind_knockback(tdef, tower, self.stats.wind_knockback_mult)
-        apply_wind_knockback(hits, config.BASE_X, config.BASE_Y, force)
+        apply_wind_knockback(
+            hits, config.BASE_X, config.BASE_Y, force, inner_rng=rng
+        )
         wx, wy = tower.world_pos()
         on_wind_gust_visual(self, wx, wy, aim, rng, half, len(hits))
         if self._shoot_sfx_cd <= 0:
@@ -845,20 +855,25 @@ class GameSession:
             tdef = self.tower_defs[tower.type_id]
             wx, wy = tower.world_pos()
             rng = tdef["range"] * (1.0 + self.stats.tower_range_mult)
-            # 射程以地基为中心（塔堆在一起，避免高层世界坐标偏移导致假射程）
+            from game.tower_range_bands import find_target_with_far
+
+            # 射程以地基为中心；外圈敌人按 50% 伤害
             if tower.type_id == "slow":
-                target = find_target(
+                target, far_mult = find_target_with_far(
                     config.BASE_X,
                     config.BASE_Y,
                     self.enemies,
                     rng,
                     eligible=lambda e: not e.is_slowed(),
                 )
-                # 范围内若已全部减速，仍打最近目标以维持寒塔伤害
                 if target is None:
-                    target = find_target(config.BASE_X, config.BASE_Y, self.enemies, rng)
+                    target, far_mult = find_target_with_far(
+                        config.BASE_X, config.BASE_Y, self.enemies, rng
+                    )
             else:
-                target = find_target(config.BASE_X, config.BASE_Y, self.enemies, rng)
+                target, far_mult = find_target_with_far(
+                    config.BASE_X, config.BASE_Y, self.enemies, rng
+                )
             if not target:
                 continue
             rate = (
@@ -872,6 +887,7 @@ class GameSession:
                 * self.stats.tower_damage_factor(tower.type_id)
                 * self.tower_damage_mult(tower)
                 * self.tower_type_stack_mult(tower)
+                * far_mult
             )
             bullet_color = tuple(tdef.get("bullet_color", tdef["color"]))
             slow_f = 0

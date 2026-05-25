@@ -55,36 +55,194 @@ def _trigger_enrage(enemy: "Enemy", sk: dict) -> None:
     enemy.attack_rate *= float(sk.get("rate_mult", 1.0))
 
 
+def _damage_guards_in_radius(
+    game: "GameSession", cx: float, cy: float, radius: float, damage: float
+) -> int:
+    if game.debug_god_mode or damage <= 0:
+        return 0
+    n = 0
+    for g in game.guards:
+        if not g.alive:
+            continue
+        if dist(cx, cy, g.x, g.y) <= radius + g.radius:
+            g.take_damage(damage)
+            n += 1
+    return n
+
+
 def _trigger_ground_slam(game: "GameSession", enemy: "Enemy", sk: dict) -> bool:
-    """震地：对基地造成范围伤害。返回是否对基地造成伤害。"""
+    """震地：范围内伤基地；可选同时震伤护卫（反护卫流）。"""
     if game.debug_god_mode:
         return False
     radius = float(sk.get("radius", 120))
-    if dist(enemy.x, enemy.y, config.BASE_X, config.BASE_Y) > radius:
+    cx, cy = config.BASE_X, config.BASE_Y
+    if dist(enemy.x, enemy.y, cx, cy) > radius + 80:
         return False
-    dmg = float(sk.get("damage", 15))
-    game.base.take_damage(dmg)
+    guard_dmg = float(sk.get("guard_damage", 0))
+    if guard_dmg > 0:
+        _damage_guards_in_radius(game, cx, cy, radius, guard_dmg)
+    hit_base = False
+    base_dmg = float(sk.get("damage", 15))
+    if dist(enemy.x, enemy.y, cx, cy) <= radius and base_dmg > 0:
+        game.base.take_damage(base_dmg)
+        game.base_alert_timer = max(
+            getattr(game, "base_alert_timer", 0.0),
+            getattr(config, "GUARD_BASE_ALERT_TIMER", 3.0),
+        )
+        hit_base = True
     spawn_fx(
         game,
         "slam",
-        config.BASE_X,
-        config.BASE_Y,
+        cx,
+        cy,
         0.45,
         radius=radius,
         seed=random.random() * 10,
     )
+    if hit_base:
+        game.on_sound("hurt")
+    return hit_base and game.base.hp <= 0
+
+
+def _trigger_shockwave(game: "GameSession", enemy: "Enemy", sk: dict) -> bool:
+    """冲击波：以自身为中心，范围伤害护卫并溅射基地。"""
+    if game.debug_god_mode:
+        return False
+    radius = float(sk.get("radius", 110))
+    guard_dmg = float(sk.get("guard_damage", 16))
+    base_dmg = float(sk.get("base_damage", 10))
+    _damage_guards_in_radius(game, enemy.x, enemy.y, radius, guard_dmg)
+    hit_base = False
+    if (
+        base_dmg > 0
+        and dist(enemy.x, enemy.y, config.BASE_X, config.BASE_Y)
+        <= radius + config.BASE_RADIUS
+    ):
+        game.base.take_damage(base_dmg)
+        game.base_alert_timer = max(
+            getattr(game, "base_alert_timer", 0.0),
+            getattr(config, "GUARD_BASE_ALERT_TIMER", 3.0),
+        )
+        hit_base = True
+    spawn_fx(
+        game,
+        "shockwave",
+        enemy.x,
+        enemy.y,
+        0.42,
+        radius=radius,
+        seed=random.random() * 10,
+    )
+    if hit_base:
+        game.on_sound("hurt")
+    return hit_base and game.base.hp <= 0
+
+
+def _trigger_guard_siege(game: "GameSession", enemy: "Enemy", sk: dict) -> bool:
+    """卫压：场上护卫过多时，清剿周围护卫并直击基地。"""
+    if game.debug_god_mode:
+        return False
+    alive = sum(1 for g in game.guards if g.alive)
+    if alive < int(sk.get("min_guards", 5)):
+        return False
+    radius = float(sk.get("radius", 150))
+    guard_dmg = float(sk.get("guard_damage", 22))
+    base_dmg = float(sk.get("base_damage", 14))
+    _damage_guards_in_radius(game, enemy.x, enemy.y, radius, guard_dmg)
+    if base_dmg > 0:
+        game.base.take_damage(base_dmg)
+        game.base_alert_timer = max(
+            getattr(game, "base_alert_timer", 0.0),
+            getattr(config, "GUARD_BASE_ALERT_TIMER", 3.0),
+        )
+    spawn_fx(
+        game,
+        "siege",
+        config.BASE_X,
+        config.BASE_Y,
+        0.5,
+        radius=radius,
+        seed=random.random() * 10,
+    )
     game.on_sound("hurt")
-    return True
+    return game.base.hp <= 0
+
+
+def attack_cleave_params(defn: dict) -> dict | None:
+    raw = defn.get("attack_cleave")
+    return dict(raw) if isinstance(raw, dict) else None
+
+
+def apply_attack_cleave(
+    game: "GameSession",
+    enemy: "Enemy",
+    kind: str,
+    guard: "Guard | None",
+) -> bool:
+    """分裂斩：近战每击对周围护卫与基地造成溅射。返回是否伤及基地。"""
+    if game.debug_god_mode or enemy.attack_mode != "melee":
+        return False
+    params = attack_cleave_params(game.enemy_defs.get(enemy.type_id, {}))
+    if not params:
+        return False
+    radius = float(params.get("radius", 72))
+    guard_mult = float(params.get("guard_damage_mult", 0.65))
+    base_mult = float(params.get("base_splash_mult", 0.28))
+    if guard_mult <= 0 and base_mult <= 0:
+        return False
+
+    cx, cy = enemy.x, enemy.y
+    if guard and guard.alive:
+        cx, cy = guard.x, guard.y
+    elif kind == "base":
+        cx, cy = float(config.BASE_X), float(config.BASE_Y)
+
+    dmg = enemy.damage
+    for g in game.guards:
+        if not g.alive or guard is not None and g.uid == guard.uid:
+            continue
+        if dist(cx, cy, g.x, g.y) <= radius + g.radius:
+            g.take_damage(dmg * guard_mult)
+
+    hit_base = False
+    if base_mult > 0 and dist(cx, cy, config.BASE_X, config.BASE_Y) <= radius + config.BASE_RADIUS:
+        game.base.take_damage(dmg * base_mult)
+        game.base_alert_timer = max(
+            getattr(game, "base_alert_timer", 0.0),
+            getattr(config, "GUARD_BASE_ALERT_TIMER", 3.0),
+        )
+        hit_base = True
+
+    spawn_fx(
+        game,
+        "cleave",
+        cx,
+        cy,
+        0.28,
+        radius=radius,
+        seed=random.random() * 10,
+    )
+    return hit_base
 
 
 def _trigger_lightning(game: "GameSession", enemy: "Enemy", sk: dict) -> bool:
-    """雷击：超远程对基地脉冲伤害（不要求贴近）。"""
+    """雷击：对基地脉冲伤害；可选震伤基地附近护卫。"""
     if game.debug_god_mode:
         return False
     radius = float(sk.get("radius", 9999))
     if dist(enemy.x, enemy.y, config.BASE_X, config.BASE_Y) > radius:
         return False
+    guard_dmg = float(sk.get("guard_damage", 0))
+    guard_radius = float(sk.get("guard_radius", 0))
+    if guard_dmg > 0 and guard_radius > 0:
+        _damage_guards_in_radius(
+            game, config.BASE_X, config.BASE_Y, guard_radius, guard_dmg
+        )
     game.base.take_damage(float(sk.get("damage", 20)))
+    game.base_alert_timer = max(
+        getattr(game, "base_alert_timer", 0.0),
+        getattr(config, "GUARD_BASE_ALERT_TIMER", 3.0),
+    )
     spawn_fx(
         game,
         "lightning",
@@ -94,7 +252,7 @@ def _trigger_lightning(game: "GameSession", enemy: "Enemy", sk: dict) -> bool:
         seed=random.random() * 10,
     )
     game.on_sound("hurt")
-    return True
+    return game.base.hp <= 0
 
 
 def _trigger_summon(game: "GameSession", enemy: "Enemy", sk: dict) -> None:
@@ -154,10 +312,16 @@ def tick_enemy_skills(game: "GameSession", enemy: "Enemy", dt: float) -> bool:
 
         if sid == "ground_slam":
             if _trigger_ground_slam(game, enemy, sk):
-                return game.base.hp <= 0
+                return True
+        elif sid == "shockwave":
+            if _trigger_shockwave(game, enemy, sk):
+                return True
+        elif sid == "guard_siege":
+            if _trigger_guard_siege(game, enemy, sk):
+                return True
         elif sid == "lightning":
             if _trigger_lightning(game, enemy, sk):
-                return game.base.hp <= 0
+                return True
         elif sid == "summon" or sid.startswith("summon_"):
             _trigger_summon(game, enemy, sk)
 

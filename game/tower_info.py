@@ -38,7 +38,9 @@ from game.mint_combat import (
     count_enemies_in_mint_range,
     mint_interval,
     mint_range,
+    mint_range_breakdown,
 )
+from game.tower_range_bands import fixed_inner_radius, fixed_outer_radius
 
 
 
@@ -143,15 +145,17 @@ def _mint_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None"
     cap = float(tdef.get("mint_cap", 48)) * (1.0 + game.stats.mint_cap_mult)
     per = float(tdef.get("mint_per_enemy", 4)) * (1.0 + game.stats.mint_yield_mult)
     base = float(tdef.get("mint_base", 1))
+    ring_in = int(fixed_inner_radius())
+    ring_out = int(fixed_outer_radius())
     if tower:
-        n = count_enemies_in_mint_range(game, rng)
+        inner_n, far_n, beyond_n, n = mint_range_breakdown(game, rng)
         est = calc_mint_gold(game, tdef, tower, n)
         lines = [
             "伤害 无（产金）",
             f"结算间隔 {interval:.1f}秒",
-            f"射程 {int(rng)}（以地基为中心）",
-            f"当前射程内 {n} 敌 · 下次约 +{est} 金",
-            f"每名敌人 +{per:.1f} 金 · 基础上限 {cap:.0f}",
+            f"塔射程 {int(rng)} · 固定内/外圈 {ring_in}/{ring_out}",
+            f"内 {inner_n} · 中外环 {far_n}×50% · 超远 {beyond_n}（计 {n:.1f}）· 约 +{est} 金",
+            f"每名 +{per:.1f} 金 · 射程>{ring_out} 后超远圈全额 · 上限 {cap:.0f}",
         ]
         if game.stats.mint_hoard_mult > 0:
             lines.append(
@@ -162,8 +166,8 @@ def _mint_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None"
         lines = [
             "伤害 无（产金）",
             f"结算间隔 {interval:.1f}秒",
-            f"射程 {int(rng)}",
-            f"基础 {base:.0f} + 每名敌人 {per:.1f} 金",
+            f"塔射程 {int(rng)} · 固定圈 {ring_in}/{ring_out}（中外环 50% 计敌）",
+            f"基础 {base:.0f} + 每名 {per:.1f} 金 · 超远圈需射程>{ring_out}",
             f"单次上限 {cap:.0f}（无敌人时收益很低）",
         ]
         if game.stats.mint_hoard_mult > 0:
@@ -186,10 +190,11 @@ def _wind_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None"
         else tdef["fire_rate"] * (1.0 + game.stats.tower_fire_rate_mult + game.stats.wind_rate_mult)
     )
     rng = int(wind_range(tdef, game.stats))
+    ring_out = int(fixed_outer_radius())
     return [
         "伤害 无（仅击退）",
         f"攻速 {rate:.2f}/秒",
-        f"射程 {rng}",
+        f"塔射程 {rng} · 固定圈 {int(fixed_inner_radius())}/{ring_out}（中外环 50% 击退）",
         f"扇形宽度 {half_deg:.0f}°",
         f"击退力度 {kb:.0f}",
     ]
@@ -206,8 +211,13 @@ def tower_stat_lines(game: "GameSession", tower: "TowerFloor", tower_index: int 
         lines = _laser_stat_lines(game, tdef, tower)
 
         rng = int(laser_range(tdef, game.stats))
+        ring_out = int(fixed_outer_radius())
 
-        lines.insert(2, f"射程 {rng}")
+        lines.insert(
+            2,
+            f"塔射程 {rng} · 固定圈 {int(fixed_inner_radius())}/{ring_out}"
+            + (f" · 超远+{rng - ring_out}" if rng > ring_out else "（满额需>{ring_out}）"),
+        )
 
     elif tower.type_id == "wind":
 
@@ -240,6 +250,7 @@ def tower_stat_lines(game: "GameSession", tower: "TowerFloor", tower_index: int 
         )
 
         rng = int(tdef["range"] * (1.0 + game.stats.tower_range_mult))
+        ring_out = int(fixed_outer_radius())
 
         lines = [
 
@@ -247,7 +258,8 @@ def tower_stat_lines(game: "GameSession", tower: "TowerFloor", tower_index: int 
 
             f"攻速 {rate:.2f}/秒",
 
-            f"射程 {rng}",
+            f"塔射程 {rng} · 固定圈 {int(fixed_inner_radius())}/{ring_out}"
+            + (f" · 超远全额" if rng > ring_out else "（中外环 50%）"),
 
         ]
 
@@ -307,8 +319,13 @@ def tower_preview_lines(game: "GameSession", type_id: str) -> list[str]:
         lines = _laser_stat_lines(game, tdef, None)
 
         rng = int(laser_range(tdef, game.stats))
+        ring_out = int(fixed_outer_radius())
 
-        lines.insert(2, f"射程 {rng}")
+        lines.insert(
+            2,
+            f"塔射程 {rng} · 固定圈 {int(fixed_inner_radius())}/{ring_out}"
+            + (f" · 超远+{rng - ring_out}" if rng > ring_out else "（满额需>{ring_out}）"),
+        )
 
         lines.append(f"建造 {game.build_cost(type_id)} 金")
 
@@ -337,6 +354,7 @@ def tower_preview_lines(game: "GameSession", type_id: str) -> list[str]:
         rate = tdef["fire_rate"] * (1.0 + game.stats.tower_fire_rate_mult)
 
         rng = int(tdef["range"] * (1.0 + game.stats.tower_range_mult))
+        ring_out = int(fixed_outer_radius())
 
         lines = [
 
@@ -344,7 +362,8 @@ def tower_preview_lines(game: "GameSession", type_id: str) -> list[str]:
 
             f"攻速 {rate:.2f}/秒",
 
-            f"射程 {rng}",
+            f"塔射程 {rng} · 固定圈 {int(fixed_inner_radius())}/{ring_out}"
+            + (f" · 超远全额" if rng > ring_out else "（中外环 50%）"),
 
             f"建造 {game.build_cost(type_id)} 金",
 

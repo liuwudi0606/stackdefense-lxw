@@ -47,7 +47,7 @@ def enemies_in_fan(
     ox: float,
     oy: float,
     aim_rad: float,
-    rng: float,
+    inner_rng: float,
     half_angle: float,
     enemies: list[Enemy],
 ) -> list[Enemy]:
@@ -56,7 +56,7 @@ def enemies_in_fan(
         if not e.alive:
             continue
         d = iso_dist(ox, oy, e.x, e.y)
-        if d > rng + e.radius or d < 8:
+        if d > inner_rng + e.radius or d < 8:
             continue
         ang = iso_angle(ox, oy, e.x, e.y)
         if abs(_angle_diff(ang, aim_rad)) <= half_angle:
@@ -69,6 +69,8 @@ def apply_wind_knockback(
     ox: float,
     oy: float,
     force: float,
+    *,
+    inner_rng: float | None = None,
 ) -> int:
     """从原点向外击退（线性滑动，非瞬移），返回命中数。"""
     duration = max(0.08, config.WIND_KNOCKBACK_DURATION)
@@ -89,22 +91,23 @@ def apply_wind_knockback(
         kb = max(0.0, min(1.0, e.wind_resist))
         if kb <= 0:
             continue
-        e.knockback_vx = (dx / d) * speed * kb
-        e.knockback_vy = (dy / d) * speed * kb
+        band_mult = 1.0
+        if inner_rng is not None:
+            from game.tower_range_bands import band_damage_mult
+
+            band_mult = band_damage_mult(ox, oy, e, inner_rng)
+            if band_mult <= 0:
+                continue
+        e.knockback_vx = (dx / d) * speed * kb * band_mult
+        e.knockback_vy = (dy / d) * speed * kb * band_mult
         e.knockback_time = duration
         n += 1
     return n
 
 
-def wind_aim_target(game: "GameSession", rng: float) -> Enemy | None:
+def wind_aim_target(game: "GameSession", inner_rng: float) -> Enemy | None:
+    from game.tower_range_bands import find_target_with_far
+
     ox, oy = config.BASE_X, config.BASE_Y
-    best: Enemy | None = None
-    best_d = rng
-    for e in game.enemies:
-        if not e.alive:
-            continue
-        d = iso_dist(ox, oy, e.x, e.y)
-        if d <= rng and d < best_d:
-            best_d = d
-            best = e
-    return best
+    target, _ = find_target_with_far(ox, oy, game.enemies, inner_rng)
+    return target

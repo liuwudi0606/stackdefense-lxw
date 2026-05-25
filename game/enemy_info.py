@@ -62,6 +62,13 @@ def enemy_detail_lines(game: "GameSession", enemy: "Enemy") -> list[str]:
         lines.append(f"风场抗性：击退效果 {int(enemy.wind_resist * 100)}%")
     if enemy.skill_flags.get("enraged"):
         lines.append("状态：狂暴（攻移速提升）")
+    if d.get("attack_cleave"):
+        ac = d["attack_cleave"]
+        lines.append(
+            f"分裂斩：半径{int(ac.get('radius', 70))} "
+            f"卫{int(ac.get('guard_damage_mult', 0.6) * 100)}% "
+            f"基溅{int(ac.get('base_splash_mult', 0.3) * 100)}%"
+        )
 
     trait = d.get("trait") or d.get("desc")
     if trait:
@@ -77,7 +84,19 @@ def enemy_detail_lines(game: "GameSession", enemy: "Enemy") -> list[str]:
             if sid == "enrage":
                 parts.append(f"狂暴(<{int(sk.get('hp_below', 0.5)*100)}%血)")
             elif sid == "ground_slam":
-                parts.append(f"震地{int(sk.get('damage', 0))}伤")
+                g = int(sk.get("guard_damage", 0))
+                parts.append(
+                    f"震地{int(sk.get('damage', 0))}伤"
+                    + (f"+清卫{g}" if g else "")
+                )
+            elif sid == "shockwave":
+                parts.append(
+                    f"冲击波 卫{int(sk.get('guard_damage', 0))}/基{int(sk.get('base_damage', 0))}"
+                )
+            elif sid == "guard_siege":
+                parts.append(
+                    f"卫压≥{int(sk.get('min_guards', 5))}卫"
+                )
             elif sid == "lightning":
                 parts.append(f"雷击{int(sk.get('damage', 0))}伤")
             elif sid == "summon" or sid.startswith("summon_"):

@@ -78,25 +78,41 @@ def laser_damage_factor(enemy: Enemy) -> float:
 
 
 def find_laser_target(ex: float, ey: float, enemies: list[Enemy], rng: float) -> Enemy | None:
-    """优先锁定范围内生命最高的敌人（适合击穿厚血单体）。"""
-    best: Enemy | None = None
-    best_hp = -1.0
-    for e in enemies:
-        if not e.alive:
-            continue
-        d = dist(ex, ey, e.x, e.y)
-        if d <= rng and e.hp > best_hp:
-            best_hp = e.hp
-            best = e
-    return best
+    """优先内圈；仅外圈有怪时锁定外圈，优先高血量。"""
+    from game.tower_range_bands import find_target_with_far
+
+    def pick_max_hp(cands: list[Enemy]) -> Enemy | None:
+        best: Enemy | None = None
+        best_hp = -1.0
+        for e in cands:
+            if e.hp > best_hp:
+                best_hp = e.hp
+                best = e
+        return best
+
+    target, _ = find_target_with_far(
+        ex, ey, enemies, rng, pick_inner=pick_max_hp
+    )
+    return target
 
 
 def target_in_laser_range(target: Enemy, rng: float) -> bool:
-    return dist(config.BASE_X, config.BASE_Y, target.x, target.y) <= rng
+    from game.tower_range_bands import band_damage_mult
+
+    return (
+        band_damage_mult(config.BASE_X, config.BASE_Y, target, rng) > 0
+    )
 
 
 def enemies_in_laser_range(enemies: list[Enemy], rng: float) -> list[Enemy]:
-    return [e for e in enemies if e.alive and target_in_laser_range(e, rng)]
+    from game.tower_range_bands import band_damage_mult
+
+    return [
+        e
+        for e in enemies
+        if e.alive
+        and band_damage_mult(config.BASE_X, config.BASE_Y, e, rng) > 0
+    ]
 
 
 def laser_smart_use_sweep(in_range: list[Enemy]) -> bool:

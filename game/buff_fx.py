@@ -79,13 +79,35 @@ def draw_range_ring(surf: pygame.Surface, game: "GameSession") -> None:
         max_r = max(max_r, r)
     if max_r <= 0:
         return
+    from game.tower_range_bands import fixed_inner_radius, fixed_outer_radius
+
     z = view_zoom()
-    rx = int(max_r * z)
-    ry = int(max_r * ISO_Y_SCALE * z)
     pulse = 0.5 + 0.5 * math.sin(game.fx_phase * 1.5)
-    alpha = int(22 + 14 * pulse)
-    ring = _ellipse_surface(rx, ry, (255, 220, 100, alpha), 2)
-    surf.blit(ring, ring.get_rect(center=base_screen()))
+    cx, cy = base_screen()
+
+    inner_r = fixed_inner_radius()
+    irx = int(inner_r * z)
+    iry = int(inner_r * ISO_Y_SCALE * z)
+    inner_ring = _ellipse_surface(
+        irx, iry, (255, 220, 100, int(22 + 14 * pulse)), 2
+    )
+    surf.blit(inner_ring, inner_ring.get_rect(center=(cx, cy)))
+
+    outer_r = fixed_outer_radius()
+    orx = int(outer_r * z)
+    ory = int(outer_r * ISO_Y_SCALE * z)
+    outer_ring = _ellipse_surface(
+        orx, ory, (200, 180, 90, int(12 + 8 * pulse)), 1
+    )
+    surf.blit(outer_ring, outer_ring.get_rect(center=(cx, cy)))
+
+    if max_r > outer_r + 4:
+        brx = int(max_r * z)
+        bry = int(max_r * ISO_Y_SCALE * z)
+        bonus = _ellipse_surface(
+            brx, bry, (140, 220, 255, int(18 + 10 * pulse)), 1
+        )
+        surf.blit(bonus, bonus.get_rect(center=(cx, cy)))
 
 
 def draw_base_buff_auras(surf: pygame.Surface, game: "GameSession") -> None:
@@ -367,12 +389,19 @@ def draw_world_fx(surf: pygame.Surface, game: "GameSession") -> None:
             pygame.draw.circle(surf, col, (sx, sy), max(2, rad))
             if fx.extra.get("twin"):
                 pygame.draw.circle(surf, col, (sx + 6, sy - 4), max(2, rad - 2))
-        elif fx.kind == "slam":
+        elif fx.kind in ("slam", "shockwave", "cleave", "siege"):
             rad = int(fx.extra.get("radius", 100) * view_zoom() * (0.6 + 0.4 * p))
-            z = view_zoom()
             rx = max(20, rad)
             ry = max(12, int(rad * ISO_Y_SCALE))
-            ring = _ellipse_surface(rx, ry, (255, 120, 80, int(140 * (1.0 - p))), 3)
+            if fx.kind == "cleave":
+                col = (255, 160, 90, int(120 * (1.0 - p)))
+            elif fx.kind == "shockwave":
+                col = (255, 100, 70, int(150 * (1.0 - p)))
+            elif fx.kind == "siege":
+                col = (255, 80, 120, int(130 * (1.0 - p)))
+            else:
+                col = (255, 120, 80, int(140 * (1.0 - p)))
+            ring = _ellipse_surface(rx, ry, col, 3 if fx.kind != "cleave" else 2)
             surf.blit(ring, ring.get_rect(center=(sx, sy)))
         elif fx.kind == "lightning":
             for i in range(6):

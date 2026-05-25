@@ -166,6 +166,10 @@ def update_enemy_combat(game: "GameSession", enemy: Enemy, dt: float) -> bool:
 
     enemy.attack_cd = 1.0 / max(0.15, enemy.attack_rate)
     hit_base = _apply_enemy_hit(game, enemy, kind, guard)
+    from game.enemy_skills import apply_attack_cleave
+
+    if apply_attack_cleave(game, enemy, kind, guard):
+        hit_base = True
     if hit_base:
         game.on_sound("hurt")
     return game.base.hp <= 0

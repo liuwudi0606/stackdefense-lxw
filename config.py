@@ -28,16 +28,23 @@ BUILD_CLICK_RADIUS = 90
 SPAWN_RADIUS = 400
 # 成团刷怪：同批敌人入口角相同，位置在 spread 内随机散布（便于范围炮命中）
 CLUSTER_SPAWN_SPREAD = 38
+# 塔射程固定双环（随布局与刷怪半径对齐，不随射程 Buff 缩放）
+TOWER_RANGE_INNER = 400.0
+TOWER_RANGE_OUTER = 700.0
+TOWER_FAR_ENEMY_WEIGHT = 0.5
 
 
 def _recompute_layout_constants() -> None:
     global BASE_X, BASE_Y, BASE_RADIUS, BUILD_CLICK_RADIUS, SPAWN_RADIUS, CLUSTER_SPAWN_SPREAD
+    global TOWER_RANGE_INNER, TOWER_RANGE_OUTER
     BASE_X = WIDTH // 2
     BASE_Y = HEIGHT // 2 + (24 if PORTRAIT else 20)
     BASE_RADIUS = 40 if PORTRAIT else 42
     BUILD_CLICK_RADIUS = 82 if PORTRAIT else 90
     SPAWN_RADIUS = min(340, int(min(WIDTH, HEIGHT) * 0.42))
     CLUSTER_SPAWN_SPREAD = max(28, int(SPAWN_RADIUS * 0.095))
+    TOWER_RANGE_INNER = float(max(280, int(SPAWN_RADIUS * 0.92)))
+    TOWER_RANGE_OUTER = float(max(480, int(SPAWN_RADIUS * 1.65)))
 
 
 def apply_layout(portrait: bool) -> None:
