@@ -397,6 +397,25 @@ def main() -> int:
         text = text.replace("function frame_online(url) {", LOADER_WATCHDOG + "\n    function frame_online(url) {", 1)
         changed += 1
 
+    if 'data-os="vtx,snd,gui"' in text:
+        text = text.replace('data-os="vtx,snd,gui"', 'data-os="snd,gui"', 1)
+        changed += 1
+
+    sw_old = (
+        "        if (navigator.serviceWorker)\n"
+        '            navigator.serviceWorker.register("./cdn/0.9.3/pygbag0.9.3.js")\n'
+        "        else\n"
+        '            console.warn("Service workers not supported")'
+    )
+    sw_new = (
+        "        // GitHub Pages 静态托管无需 pygbag service worker\n"
+        "        // if (navigator.serviceWorker)\n"
+        '        //     navigator.serviceWorker.register("./cdn/0.9.3/pygbag0.9.3.js")'
+    )
+    if sw_old in text:
+        text = text.replace(sw_old, sw_new, 1)
+        changed += 1
+
     if "z-index: 5;" in text and "canvas.emscripten" in text:
         text = text.replace("            z-index: 5;\n\n", "")
         changed += 1

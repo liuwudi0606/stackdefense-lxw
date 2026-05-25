@@ -31,6 +31,16 @@ RUNTIME_FILES = [
     "cpython312/main.data",
 ]
 
+# pythons.js 会动态 import ../vtx.js；iframe 需要 empty.html
+EXTRA_CDN_FILES = [
+    ("vtx.js", LOCAL_CDN_ROOT / "vtx.js"),
+    ("vt.js", LOCAL_CDN_ROOT / "vt.js"),
+    ("vt/xterm.css", LOCAL_CDN_ROOT / "vt" / "xterm.css"),
+    ("vt/xterm.js", LOCAL_CDN_ROOT / "vt" / "xterm.js"),
+    ("vt/xterm-addon-image.js", LOCAL_CDN_ROOT / "vt" / "xterm-addon-image.js"),
+    (f"{CDN_VER}/empty.html", LOCAL / "empty.html"),
+]
+
 
 def download(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -77,8 +87,20 @@ def main() -> int:
     except Exception as e:
         print(f"  WARN index json: {e}")
 
+    print("下载 pygbag 辅助脚本（vtx / empty.html 等）…")
+    extra_ok = 0
+    for rel, dest in EXTRA_CDN_FILES:
+        try:
+            download(f"{PYGAME_CDN}/{rel}", dest)
+            extra_ok += 1
+        except Exception as e:
+            print(f"  WARN {rel}: {e}")
+
     if ok < 3:
         print("Python 运行时下载不完整，请检查网络后重试。")
+        return 1
+    if extra_ok < 1:
+        print("辅助 CDN 文件下载失败，请检查网络后重试。")
         return 1
 
     print("完成。请运行 preview_web.bat 或: python tools/serve_web.py")
