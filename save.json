@@ -1,8 +1,11 @@
 {
-  "tokens": 128,
+  "tokens": 17,
   "purchased": [
     "base_hp",
+    "build_discount_1",
     "cannon_start",
+    "exp_1",
+    "gold_1",
     "layers_10",
     "layers_8",
     "start_gold"
