@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_USER = "lxwwudi0606"
+DEFAULT_USER = "liuwudi0606"
 DEFAULT_REPO = "stackdefense-lxw"
 
 
@@ -101,8 +101,8 @@ def ensure_origin(user: str, repo: str) -> bool:
 
 def ensure_git_identity() -> None:
     for key, default in (
-        ("user.name", "lxwwudi0606"),
-        ("user.email", "lxwwudi0606@users.noreply.github.com"),
+        ("user.name", "liuwudi0606"),
+        ("user.email", "liuwudi0606@users.noreply.github.com"),
     ):
         proc = subprocess.run(
             ["git", "config", key],

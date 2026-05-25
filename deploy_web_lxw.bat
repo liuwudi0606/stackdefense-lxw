@@ -6,7 +6,7 @@ cd /d "%~dp0"
 
 
 
-set "LXW_GITHUB_USER=lxwwudi0606"
+set "LXW_GITHUB_USER=liuwudi0606"
 
 set "LXW_GITHUB_REPO=stackdefense-lxw"
 
