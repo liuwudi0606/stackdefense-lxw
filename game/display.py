@@ -7,7 +7,7 @@ import json
 import pygame
 
 import config
-from game.layout import init_layout
+from game.layout import init_layout, sync_web_framebuffer
 from game.platform_util import is_web
 
 _SETTINGS_PATH = config.ROOT / "display.json"
@@ -30,6 +30,7 @@ class DisplayManager:
         self.screen: pygame.Surface
         self.scale = 1.0
         self.dest_rect = pygame.Rect(0, 0, self.design_w, self.design_h)
+        self._web_canvas_size: tuple[int, int] | None = None
         self._create_screen()
 
     def _load_settings(self) -> None:
@@ -72,6 +73,8 @@ class DisplayManager:
             self.surface = self.screen
             self.scale = 1.0
             self.dest_rect = pygame.Rect(0, 0, self.design_w, self.design_h)
+            sync_web_framebuffer()
+            self._web_canvas_size = (self.design_w, self.design_h)
             return
         if self.fullscreen:
             info = pygame.display.Info()
@@ -127,14 +130,10 @@ class DisplayManager:
             pygame.event.pump()
             pygame.display.flip()
             pygame.display.update()
-            try:
-                import platform as pw
-
-                pw.window.window_resize()
-                if config.PORTRAIT:
-                    pw.document.body.style.margin = "0"
-            except Exception:
-                pass
+            size = (self.design_w, self.design_h)
+            if self._web_canvas_size != size:
+                sync_web_framebuffer()
+                self._web_canvas_size = size
             return
         self.screen.fill(_LETTERBOX)
         if self.dest_rect.width == self.design_w and self.dest_rect.height == self.design_h:

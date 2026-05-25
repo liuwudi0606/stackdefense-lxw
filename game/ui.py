@@ -75,7 +75,6 @@ class UI:
         self.f_title = get_font(36 if not config.PORTRAIT else 30)
         self._build_bar_h = config.BUILD_BAR_HEIGHT
         self.build_bar_scroll_x = 0
-        self._build_bar_swipe_x: int | None = None
         self._build_bar_h_drag: tuple[int, int] | None = None
         self._bg_tile = sprites.get("bg_tile")
         self._bg_tile_alt = sprites.get("bg_tile_alt") or self._bg_tile
@@ -782,28 +781,6 @@ class UI:
 
     def end_build_bar_scroll_drag(self) -> None:
         self._build_bar_h_drag = None
-        self._build_bar_swipe_x = None
-
-    def update_build_bar_swipe(self, game: GameSession, mx: int, my: int) -> bool:
-        if game.build_drag or self._build_bar_h_drag is not None:
-            return False
-        vp = self._build_bar_viewport(game)
-        if not vp.collidepoint(mx, my):
-            self._build_bar_swipe_x = None
-            return False
-        max_s = self._build_bar_layout(len(game.build_bar_types()))["max_scroll_x"]
-        if max_s <= 0:
-            return False
-        if self._build_bar_swipe_x is None:
-            self._build_bar_swipe_x = mx
-            return False
-        dx = self._build_bar_swipe_x - mx
-        self._build_bar_swipe_x = mx
-        if abs(dx) < 1:
-            return False
-        self.build_bar_scroll_x += dx
-        self._clamp_build_bar_scroll(game)
-        return True
 
     def _build_bar_slots(self, game: GameSession) -> list[dict]:
         types = game.build_bar_types()
@@ -823,40 +800,45 @@ class UI:
 
     def draw_build_bar(self, surf: pygame.Surface, game: GameSession) -> None:
         layout = self._build_bar_layout(len(game.build_bar_types()))
-        bar_h = layout["total_h"]
         vp = self._build_bar_viewport(game)
         pygame.draw.rect(surf, (22, 26, 34), vp)
-        old_clip = surf.get_clip()
+        bar_clip = surf.get_clip()
         surf.set_clip(vp)
-        for slot in self._build_bar_slots(game):
-            tid = slot["id"]
-            rect = slot["rect"]
-            tdef = game.tower_defs[tid]
-            sel = game.selected_build is not None and tid == game.selected_build
-            col = (90, 110, 150) if sel else (55, 62, 78)
-            pygame.draw.rect(surf, col, rect, border_radius=6)
-            if sel:
-                pygame.draw.rect(surf, (140, 180, 255), rect, 2, border_radius=6)
-            tim = self.sprites.tower(tid)
-            if tim:
-                scale = min(1.0, 40 / max(tim.get_width(), tim.get_height()))
-                tw, th = int(tim.get_width() * scale), int(tim.get_height() * scale)
-                icon = pygame.transform.smoothscale(tim, (max(1, tw), max(1, th)))
-                surf.blit(icon, icon.get_rect(center=(rect.x + 22, rect.centery)))
-            text_area = pygame.Rect(rect.x + 40, rect.y + 3, rect.width - 74, rect.height - 6)
-            old_clip = surf.get_clip()
-            surf.set_clip(text_area)
-            ty = text_area.y + 2
-            ty += blit_topleft(surf, self.f_xs, tdef["name"], text_area.x, ty, text_area.width, (230, 230, 240))
-            ty += 4
-            price = f"{game.build_cost(tid)}金"
-            price_img = fit_render(self.f_xs, price, text_area.width, (255, 220, 120))
-            price_y = min(ty, text_area.bottom - price_img.get_height() - 1)
-            surf.blit(price_img, (text_area.x, price_y))
-            surf.set_clip(old_clip)
-            info_r = slot["info"]
-            draw_info_icon(surf, info_r.centerx, info_r.centery, self.f_xs, 9)
-        surf.set_clip(old_clip)
+        try:
+            for slot in self._build_bar_slots(game):
+                tid = slot["id"]
+                rect = slot["rect"]
+                tdef = game.tower_defs[tid]
+                sel = game.selected_build is not None and tid == game.selected_build
+                col = (90, 110, 150) if sel else (55, 62, 78)
+                pygame.draw.rect(surf, col, rect, border_radius=6)
+                if sel:
+                    pygame.draw.rect(surf, (140, 180, 255), rect, 2, border_radius=6)
+                tim = self.sprites.tower(tid)
+                if tim:
+                    scale = min(1.0, 40 / max(tim.get_width(), tim.get_height()))
+                    tw, th = int(tim.get_width() * scale), int(tim.get_height() * scale)
+                    icon = pygame.transform.smoothscale(tim, (max(1, tw), max(1, th)))
+                    surf.blit(icon, icon.get_rect(center=(rect.x + 22, rect.centery)))
+                text_area = pygame.Rect(rect.x + 40, rect.y + 3, rect.width - 74, rect.height - 6)
+                text_clip = surf.get_clip()
+                surf.set_clip(text_area)
+                try:
+                    ty = text_area.y + 2
+                    ty += blit_topleft(
+                        surf, self.f_xs, tdef["name"], text_area.x, ty, text_area.width, (230, 230, 240)
+                    )
+                    ty += 4
+                    price = f"{game.build_cost(tid)}金"
+                    price_img = fit_render(self.f_xs, price, text_area.width, (255, 220, 120))
+                    price_y = min(ty, text_area.bottom - price_img.get_height() - 1)
+                    surf.blit(price_img, (text_area.x, price_y))
+                finally:
+                    surf.set_clip(text_clip)
+                info_r = slot["info"]
+                draw_info_icon(surf, info_r.centerx, info_r.centery, self.f_xs, 9)
+        finally:
+            surf.set_clip(bar_clip)
 
         track, thumb = self._build_bar_scroll_track(game)
         if layout["max_scroll_x"] > 0:

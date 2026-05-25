@@ -262,8 +262,6 @@ async def _main_async() -> None:
                         continue
                     if ui.update_build_bar_scroll_drag(game, gpos[0]):
                         continue
-                    if ui.update_build_bar_swipe(game, gpos[0], gpos[1]):
-                        continue
                     if game.scroll_drag:
                         if game.scroll_drag.kind.startswith("debug"):
                             if debug_ui.update_scroll_drag(game, gpos[1], ui.f_sm):

@@ -52,3 +52,28 @@ def init_layout(force_portrait: bool | None = None) -> bool:
     portrait = should_use_portrait() if force_portrait is None else force_portrait
     config.apply_layout(portrait)
     return portrait
+
+
+def sync_web_framebuffer() -> None:
+    """竖屏时把浏览器 canvas 调到与 config.WIDTH/HEIGHT 一致，避免底部 UI 被裁切。"""
+    if sys.platform not in ("emscripten", "wasi"):
+        return
+    try:
+        import platform as pw
+
+        w, h = config.WIDTH, config.HEIGHT
+        ar = h / max(1, w)
+        pw.window.run_script(
+            "if (typeof config !== 'undefined') {"
+            f"config.fb_width = {w};"
+            f"config.fb_height = {h};"
+            f"config.fb_ar = {ar};"
+            "}"
+        )
+        cfg = pw.window.config
+        for name, val in (("fb_width", w), ("fb_height", h), ("fb_ar", ar)):
+            if hasattr(cfg, name):
+                setattr(cfg, name, val)
+        pw.window.window_resize()
+    except Exception:
+        pass
