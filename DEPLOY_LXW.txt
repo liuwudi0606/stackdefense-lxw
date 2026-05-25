@@ -1,0 +1,16 @@
+《叠层防线》GitHub Pages 部署（lxw）
+========================================
+公网地址: https://lxwwudi0606.github.io/stackdefense-lxw/
+GitHub 仓库: https://github.com/lxwwudi0606/stackdefense-lxw
+
+分享给朋友:
+  https://lxwwudi0606.github.io/stackdefense-lxw/
+
+首次使用请在 GitHub 仓库设置:
+  Settings → Pages → Build and deployment → Source: GitHub Actions
+
+查看构建进度:
+  https://github.com/lxwwudi0606/stackdefense-lxw/actions
+
+重新部署: 双击 deploy_web_lxw.bat
+本地预览: 双击 preview_web.bat

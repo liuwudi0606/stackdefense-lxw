@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_USER = "lxw"
+DEFAULT_USER = "lxwwudi0606"
 DEFAULT_REPO = "stackdefense-lxw"
 
 
@@ -93,15 +93,17 @@ def ensure_origin(user: str, repo: str) -> bool:
     if current:
         if current.rstrip("/").lower().endswith(f"{user}/{repo}.git".lower()):
             return True
-        print(f"已有 origin: {current}")
-        print(f"若需改为 {url}，请手动: git remote set-url origin {url}")
-        return True
+        print(f"更新 origin: {current} → {url}")
+        return _run(["git", "remote", "set-url", "origin", url]) == 0
     print(f"添加远程仓库 origin → {url}")
     return _run(["git", "remote", "add", "origin", url]) == 0
 
 
 def ensure_git_identity() -> None:
-    for key, default in (("user.name", "lxw"), ("user.email", "lxw@users.noreply.github.com")):
+    for key, default in (
+        ("user.name", "lxwwudi0606"),
+        ("user.email", "lxwwudi0606@users.noreply.github.com"),
+    ):
         proc = subprocess.run(
             ["git", "config", key],
             cwd=str(ROOT),

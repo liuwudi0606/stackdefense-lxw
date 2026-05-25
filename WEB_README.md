@@ -91,16 +91,16 @@ python -m pygbag . --archive
 
 双击 **`deploy_web_lxw.bat`**，将代码推送到 GitHub，由 Actions 自动构建并发布。
 
-默认公网地址（用户名 `lxw`、仓库 `stackdefense-lxw`）：
+默认公网地址（用户名 `lxwwudi0606`、仓库 `stackdefense-lxw`）：
 
-**https://lxw.github.io/stackdefense-lxw/**
+**https://lxwwudi0606.github.io/stackdefense-lxw/**
 
 首次使用：
 
-1. 安装 [Git](https://git-scm.com/) 与 [GitHub CLI](https://cli.github.com/)
-2. 终端执行 `gh auth login` 登录
-3. 在仓库 **Settings → Pages → Source** 选择 **GitHub Actions**
-4. 若你的 GitHub 用户名不是 `lxw`，编辑 `deploy_web_lxw.bat` 中的 `LXW_GITHUB_USER`
+1. 安装 [Git](https://git-scm.com/)
+2. 在 https://github.com/new 创建空仓库 `stackdefense-lxw`
+3. 双击 `deploy_web_lxw.bat` 推送代码
+4. 在仓库 **Settings → Pages → Source** 选择 **GitHub Actions**
 
 推送后约 5～15 分钟可在上述地址游玩；链接见 **`DEPLOY_LXW.txt`**。
 
