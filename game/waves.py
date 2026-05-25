@@ -117,6 +117,33 @@ class WaveController:
     def _cluster_spread(self, w: dict) -> float:
         return float(w.get("cluster_spread", config.CLUSTER_SPAWN_SPREAD))
 
+    def retry_wave_index(self) -> int:
+        """失败重试时回退到的预定波次下标（spawn_queue 或当前时刻所属波）。"""
+        if not self.waves:
+            return 0
+        if self.spawn_queue:
+            t_ref = min(t for t, _, _ in self.spawn_queue)
+        else:
+            t_ref = self.elapsed
+        idx = 0
+        for i, w in enumerate(self.waves):
+            if float(w["at"]) <= t_ref + 0.001:
+                idx = i
+        return idx
+
+    def rewind_to_wave(self, idx: int) -> None:
+        """从指定预定波次重新触发（清空待刷队列）。"""
+        if not self.waves:
+            self.spawn_queue = []
+            self.all_scheduled_spawned = False
+            return
+        idx = max(0, min(idx, len(self.waves) - 1))
+        w = self.waves[idx]
+        self.elapsed = float(w["at"])
+        self.wave_index = idx
+        self.spawn_queue = []
+        self.all_scheduled_spawned = False
+
     def _wave_count_mult(self, wave_at: float) -> float:
         full = float(getattr(config, "NORMAL_WAVE_COUNT_MULT", 1.0))
         if full <= 1.0:

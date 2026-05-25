@@ -102,6 +102,10 @@ def _apply_enemy_hit(
         return False
     if kind == "base":
         game.base.take_damage(dmg)
+        game.base_alert_timer = max(
+            getattr(game, "base_alert_timer", 0.0),
+            getattr(config, "GUARD_BASE_ALERT_TIMER", 3.0),
+        )
         if game.stats.base_thorns > 0:
             enemy.take_damage(float(game.stats.base_thorns))
             from game.buff_fx import on_base_thorns_hit
@@ -195,13 +199,47 @@ def _any_alive_enemy(game: "GameSession") -> bool:
     return any(e.alive for e in game.enemies)
 
 
+def _enemy_targets_base(game: "GameSession", enemy: Enemy) -> bool:
+    kind, _, _, _ = pick_enemy_target(game, enemy)
+    return kind == "base"
+
+
+def _enemy_attacking_base(game: "GameSession", enemy: Enemy) -> bool:
+    """敌人已进入对基地的攻击站位（含远程停火距离）。"""
+    if not enemy.alive or not _enemy_targets_base(game, enemy):
+        return False
+    _, tx, ty, _ = pick_enemy_target(game, enemy)
+    stop = _stop_distance(enemy, config.BASE_RADIUS)
+    return dist(enemy.x, enemy.y, tx, ty) <= stop * 1.08
+
+
+def _base_under_attack(game: "GameSession") -> bool:
+    if getattr(game, "base_alert_timer", 0.0) > 0:
+        return True
+    return any(_enemy_attacking_base(game, e) for e in game.enemies if e.alive)
+
+
+def _pick_guard_target(game: "GameSession", guard: Guard) -> Enemy | None:
+    if not _any_alive_enemy(game):
+        return None
+    target = find_target(guard.x, guard.y, game.enemies, guard.seek_range)
+    if target or not _base_under_attack(game):
+        return target
+    extended = guard.seek_range + getattr(config, "GUARD_BASE_ALERT_SEEK_EXTEND", 220)
+    return find_target(
+        guard.x,
+        guard.y,
+        game.enemies,
+        extended,
+        eligible=lambda e: _enemy_targets_base(game, e),
+    )
+
+
 def update_guard_combat(game: "GameSession", guard: Guard, dt: float) -> None:
     if not guard.alive:
         return
 
-    target = None
-    if _any_alive_enemy(game):
-        target = find_target(guard.x, guard.y, game.enemies, guard.seek_range)
+    target = _pick_guard_target(game, guard)
 
     if target:
         stop = guard.attack_range * 0.82 + target.radius

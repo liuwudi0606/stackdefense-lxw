@@ -121,6 +121,8 @@ class GameSession:
         self.enemies: list[Enemy] = []
         self.guards: list[Guard] = []
         self._guard_uid = 0
+        self.base_alert_timer = 0.0
+        self.loss_retry_wave_index = 0
         self.bullets: list[Bullet] = []
         self.explosions: list[ExplosionFx] = []
         self.gold = config.START_GOLD + me.get("start_gold_bonus", 0)
@@ -188,6 +190,49 @@ class GameSession:
     def finish_campaign_victory(self) -> None:
         """拒绝无尽，进入最终胜利结算。"""
         self.state = GameState.WON
+
+    def _on_base_destroyed(self) -> None:
+        self.loss_retry_wave_index = self.waves.retry_wave_index()
+        self.state = GameState.LOST
+
+    def restart_wave_after_loss(self) -> None:
+        """地基被毁后重开本波：保留金币、等级、塔与 Buff，重刷当前波敌人。"""
+        hp_mult = 1.0 + self.meta_hp_mult + self.stats.base_hp_mult
+        self.base.max_hp = config.BASE_HP_START * hp_mult
+        self.base.hp = self.base.max_hp
+        if self.stats.base_shield > 0:
+            self.base.shield = float(self.stats.base_shield)
+        else:
+            self.base.shield = 0.0
+        self.base.pulse_flash = 0.0
+        self.base_alert_timer = 0.0
+
+        self.enemies.clear()
+        self.guards.clear()
+        self.bullets.clear()
+        self.explosions.clear()
+        self.world_fx.clear()
+
+        for tower in self.towers:
+            tower.cooldown = 0.0
+            tower.laser_target = None
+            tower.laser_charge = 0.0
+            tower.laser_break_timer = 0.0
+            tower.laser_sweeping = False
+
+        if self.waves.endless and self.waves.all_scheduled_spawned:
+            self.waves._endless_cd = max(self.waves._endless_cd, 2.5)
+        else:
+            self.waves.rewind_to_wave(self.loss_retry_wave_index)
+
+        self.selected_tower_index = None
+        self.selected_enemy_index = None
+        self.swap_source_index = None
+        self.build_drag = None
+        self.debug_menu_open = False
+        self.buff_panel_open = False
+        self.state = GameState.PLAYING
+        self.show_toast("本波重来 — 金币与进度已保留")
 
     def build_bar_types(self) -> list[str]:
         return [t for t in self.build_types if _is_playable_tower(self.tower_defs, t)]
@@ -585,6 +630,8 @@ class GameSession:
         self.fx_phase += dt
         update_buff_fx(self, dt)
         self._tick_waves(dt)
+        if self.base_alert_timer > 0:
+            self.base_alert_timer = max(0.0, self.base_alert_timer - dt)
 
         self.base.update(dt, self)
 
@@ -597,7 +644,7 @@ class GameSession:
             if not e.alive:
                 continue
             if update_enemy_combat(self, e, dt):
-                self.state = GameState.LOST
+                self._on_base_destroyed()
                 break
 
         dead = [e for e in self.enemies if not e.alive]

@@ -1149,6 +1149,24 @@ class UI:
             pygame.draw.rect(surf, border, rect, 2, border_radius=8)
             blit_in_rect(surf, self.f_md, label, rect, (235, 240, 250), pad=6)
 
+    def _lost_screen_layout(self) -> tuple[pygame.Rect, pygame.Rect, pygame.Rect]:
+        pw, ph = (config.WIDTH - 32, 248) if config.PORTRAIT else (500, 220)
+        panel = pygame.Rect(config.WIDTH // 2 - pw // 2, config.HEIGHT // 2 - ph // 2, pw, ph)
+        btn_w, btn_h, gap = 168, 44, 20
+        y = panel.bottom - 18 - btn_h
+        x0 = panel.centerx - btn_w - gap // 2
+        retry_r = pygame.Rect(x0, y, btn_w, btn_h)
+        menu_r = pygame.Rect(x0 + btn_w + gap, y, btn_w, btn_h)
+        return panel, retry_r, menu_r
+
+    def lost_screen_hit(self, mx: int, my: int) -> str | None:
+        _panel, retry_r, menu_r = self._lost_screen_layout()
+        if retry_r.collidepoint(mx, my):
+            return "retry"
+        if menu_r.collidepoint(mx, my):
+            return "menu"
+        return None
+
     def draw_end_screen(
         self, surf: pygame.Surface, game: GameSession, won: bool, token_gain: int = 0
     ) -> None:
@@ -1157,17 +1175,42 @@ class UI:
         surf.blit(overlay, (0, 0))
         title = "胜利！" if won else "地基被毁"
         col = (120, 255, 160) if won else (255, 100, 100)
+        if won:
+            t = self.f_title.render(title, True, col)
+            surf.blit(t, t.get_rect(center=(config.WIDTH // 2, config.HEIGHT // 2 - 50)))
+            mins = int(game.waves.elapsed // 60)
+            secs = int(game.waves.elapsed % 60)
+            extra = f"  |  获得代币 +{token_gain}" if token_gain else ""
+            sub = self.f_md.render(
+                f"用时 {mins:02d}:{secs:02d}  |  等级 {game.level}{extra}  |  点击返回主菜单",
+                True,
+                (220, 220, 230),
+            )
+            surf.blit(sub, sub.get_rect(center=(config.WIDTH // 2, config.HEIGHT // 2 + 10)))
+            return
+
+        panel, retry_r, menu_r = self._lost_screen_layout()
+        pygame.draw.rect(surf, (32, 38, 52), panel, border_radius=12)
+        pygame.draw.rect(surf, (120, 80, 80), panel, 2, border_radius=12)
         t = self.f_title.render(title, True, col)
-        surf.blit(t, t.get_rect(center=(config.WIDTH // 2, config.HEIGHT // 2 - 50)))
+        surf.blit(t, t.get_rect(center=(panel.centerx, panel.y + 42)))
         mins = int(game.waves.elapsed // 60)
         secs = int(game.waves.elapsed % 60)
-        extra = f"  |  获得代币 +{token_gain}" if won and token_gain else ""
         sub = self.f_md.render(
-            f"用时 {mins:02d}:{secs:02d}  |  等级 {game.level}{extra}  |  点击返回主菜单",
+            f"用时 {mins:02d}:{secs:02d}  |  等级 {game.level}  |  金币 {game.gold}",
             True,
-            (220, 220, 230),
+            (210, 215, 230),
         )
-        surf.blit(sub, sub.get_rect(center=(config.WIDTH // 2, config.HEIGHT // 2 + 10)))
+        surf.blit(sub, sub.get_rect(center=(panel.centerx, panel.y + 88)))
+        hint = self.f_sm.render("保留金币、塔层与增益，从当前波重新防守", True, (180, 190, 210))
+        surf.blit(hint, hint.get_rect(center=(panel.centerx, panel.y + 122)))
+        for rect, label, fill, border in (
+            (retry_r, "重新开始本波", (55, 95, 75), (100, 200, 140)),
+            (menu_r, "返回主菜单", (55, 58, 72), (120, 130, 160)),
+        ):
+            pygame.draw.rect(surf, fill, rect, border_radius=8)
+            pygame.draw.rect(surf, border, rect, 2, border_radius=8)
+            blit_in_rect(surf, self.f_md, label, rect, (235, 240, 250), pad=6)
 
     def draw_stack_highlight(self, surf: pygame.Surface, game: GameSession, mx: int, my: int) -> None:
         from game.camera import camera_apply, view_zoom

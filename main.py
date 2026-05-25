@@ -407,7 +407,21 @@ async def _main_async() -> None:
                 if ui.try_begin_scroll_drag(game, mx, my):
                     continue
 
-                if game.state in (GameState.WON, GameState.LOST):
+                if game.state == GameState.LOST:
+                    action = ui.lost_screen_hit(mx, my)
+                    if action == "retry":
+                        game.restart_wave_after_loss()
+                        end_handled = False
+                        save_run(game)
+                        continue
+                    if action == "menu":
+                        delete_run_save()
+                        app_state = AppState.MENU
+                        game = None
+                        continue
+                    continue
+
+                if game.state == GameState.WON:
                     delete_run_save()
                     app_state = AppState.MENU
                     game = None
@@ -529,7 +543,6 @@ async def _main_async() -> None:
                 delete_run_save()
                 end_handled = True
             elif game.state == GameState.LOST:
-                delete_run_save()
                 audio.play("lose")
                 end_handled = True
 
