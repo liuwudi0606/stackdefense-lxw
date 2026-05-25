@@ -11,12 +11,35 @@ def is_web() -> bool:
     return sys.platform in ("emscripten", "wasi")
 
 
+def _load_pygame():
+    import importlib
+    import sys
+
+    import pygame
+
+    if callable(getattr(pygame, "init", None)):
+        return pygame
+    try:
+        pygame = importlib.reload(pygame)
+    except Exception:
+        pass
+    if callable(getattr(pygame, "init", None)):
+        return pygame
+    sys.modules.pop("pygame", None)
+    import pygame
+
+    return pygame
+
+
 def ensure_pygame_init() -> None:
-    """网页 WASM 版 pygame 可能没有 get_init，且需在 import 子模块前 init。"""
+    """网页 WASM 需在 run_main / pip 完成后再 init；勿在 main 模块顶层调用。"""
     global _pygame_ready
     if _pygame_ready:
         return
-    import pygame
+    pygame = _load_pygame()
+    init_fn = getattr(pygame, "init", None)
+    if not callable(init_fn):
+        return
 
     get_init = getattr(pygame, "get_init", None)
     if callable(get_init):
@@ -26,7 +49,7 @@ def ensure_pygame_init() -> None:
                 return
         except Exception:
             pass
-    pygame.init()
+    init_fn()
     _pygame_ready = True
 
 

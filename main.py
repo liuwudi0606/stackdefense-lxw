@@ -13,11 +13,10 @@ from enum import Enum, auto
 if sys.platform in ("emscripten", "wasi"):
     os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
-import pygame
 from game.platform_util import ensure_pygame_init, is_web, web_disable_chromakey
 
-if sys.platform in ("emscripten", "wasi"):
-    ensure_pygame_init()
+if sys.platform not in ("emscripten", "wasi"):
+    import pygame
 
 import config
 from game.assets import SpriteBank
@@ -92,7 +91,18 @@ async def main() -> None:
 async def _main_async() -> None:
     if is_web():
         web_disable_chromakey()
-    ensure_pygame_init()
+        for _ in range(100):
+            ensure_pygame_init()
+            import pygame
+
+            if callable(getattr(pygame, "init", None)):
+                break
+            await asyncio.sleep(0.05)
+        else:
+            raise RuntimeError("pygame-ce 未就绪：请刷新页面或重新部署网页版")
+    else:
+        ensure_pygame_init()
+        import pygame
 
     display = DisplayManager()
     pygame.display.set_caption("叠层防线")
