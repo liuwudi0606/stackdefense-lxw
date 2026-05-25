@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import config
-from game.platform_util import is_web
+from game.platform_util import ensure_pygame_init, is_web
 
 if TYPE_CHECKING:
     import pygame
@@ -51,8 +51,7 @@ def resolve_font_path() -> Path | None:
 def get_font(size: int, bold: bool = False) -> "pygame.font.Font":
     import pygame
 
-    if not pygame.get_init():
-        pygame.init()
+    ensure_pygame_init()
 
     key = (size, bold)
     if key in _cache:

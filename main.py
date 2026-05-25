@@ -14,9 +14,10 @@ if sys.platform in ("emscripten", "wasi"):
     os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import pygame
+from game.platform_util import ensure_pygame_init, is_web, web_disable_chromakey
 
-if sys.platform in ("emscripten", "wasi") and not pygame.get_init():
-    pygame.init()
+if sys.platform in ("emscripten", "wasi"):
+    ensure_pygame_init()
 
 import config
 from game.assets import SpriteBank
@@ -31,7 +32,6 @@ from game.save_run import (
 )
 from game.session import GameSession, GameState
 from game.display import DisplayManager
-from game.platform_util import is_web, web_disable_chromakey
 from game.ui import UI
 from game.ui_debug import DebugUI
 
@@ -92,8 +92,7 @@ async def main() -> None:
 async def _main_async() -> None:
     if is_web():
         web_disable_chromakey()
-    if not pygame.get_init():
-        pygame.init()
+    ensure_pygame_init()
 
     display = DisplayManager()
     pygame.display.set_caption("叠层防线")

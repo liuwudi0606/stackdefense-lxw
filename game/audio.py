@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pygame
 
-from game.platform_util import is_web
+from game.platform_util import ensure_pygame_init, is_web
 
 ROOT = Path(__file__).resolve().parent.parent
 SOUND_DIR = ROOT / "assets" / "sounds"
@@ -80,7 +80,9 @@ class AudioManager:
 
     def init(self) -> None:
         try:
-            if not pygame.mixer.get_init():
+            ensure_pygame_init()
+            mixer_get_init = getattr(pygame.mixer, "get_init", None)
+            if not (callable(mixer_get_init) and mixer_get_init()):
                 pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
             if not is_web():
                 ensure_sounds()

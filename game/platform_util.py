@@ -4,9 +4,30 @@ from __future__ import annotations
 
 import sys
 
+_pygame_ready = False
+
 
 def is_web() -> bool:
     return sys.platform in ("emscripten", "wasi")
+
+
+def ensure_pygame_init() -> None:
+    """网页 WASM 版 pygame 可能没有 get_init，且需在 import 子模块前 init。"""
+    global _pygame_ready
+    if _pygame_ready:
+        return
+    import pygame
+
+    get_init = getattr(pygame, "get_init", None)
+    if callable(get_init):
+        try:
+            if get_init():
+                _pygame_ready = True
+                return
+        except Exception:
+            pass
+    pygame.init()
+    _pygame_ready = True
 
 
 def web_disable_chromakey() -> None:
