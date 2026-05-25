@@ -248,7 +248,8 @@ def draw_tower_buff_glows(surf: pygame.Surface, game: "GameSession") -> None:
         ):
             pulse = int(40 + 30 * math.sin(game.fx_phase * 3.5 + tower.floor))
             pygame.draw.ellipse(surf, (255, 210, 80), rect.inflate(6, 5), 2)
-            coin = pygame.Rect(sx - 4, sy - int(22 * z), 8, 8)
+            cs = scaled_size(8, 6)
+            coin = pygame.Rect(sx - scaled_size(4, 3), sy - scaled_size(22, 14), cs, cs)
             pygame.draw.ellipse(surf, (255, 230, 120, pulse), coin)
         if tower.type_id == "laser" and (
             s.laser_ramp_mult > 0 or s.laser_cap_mult > 0 or s.type_damage.get("laser", 0) > 0
