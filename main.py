@@ -510,7 +510,7 @@ async def _main_async() -> None:
                     if act == "select" and tid:
                         if game.tower_count() >= game.max_tower_floors_limit():
                             game.notify_build_blocked(tid)
-                            game.selected_build = tid
+                            game.selected_build = None
                             game.build_drag = None
                             continue
                         clicks = getattr(event, "clicks", 1)

@@ -627,6 +627,7 @@ class GameSession:
     def _add_tower(self, tower_type: str) -> None:
         floor = 1 + len(self.towers)
         self.towers.append(TowerFloor(type_id=tower_type, floor=floor))
+        self._sync_build_selection()
 
     def _next_guard_id(self) -> int:
         self._guard_uid += 1
@@ -680,6 +681,10 @@ class GameSession:
             self.selected_build = None
         if self.build_drag and self.build_drag not in self.build_types:
             self.build_drag = None
+        if self.tower_count() >= self.max_tower_floors_limit():
+            self.selected_build = None
+            self.build_drag = None
+            self.build_info_tower = None
 
     def _tick_waves(self, dt: float, *, advance_time: bool = True) -> None:
         for sp in self.waves.update(dt, advance_time=advance_time):
