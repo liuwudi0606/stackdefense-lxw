@@ -33,7 +33,7 @@ jobs:
 
       - name: Build web package
         run: |
-          python -m pygbag . --build --width 960 --height 640 --title 叠层防线 --app_name stackdefense --template web/default.tmpl
+          python -m pygbag --build --width 960 --height 640 --app_name stackdefense --template web/default.tmpl .
           python tools/patch_web_index.py
           python tools/ensure_web_headers.py
           python tools/vendor_web_cdn.py
