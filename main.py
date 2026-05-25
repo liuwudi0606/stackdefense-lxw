@@ -88,17 +88,25 @@ async def main() -> None:
     await _main_async()
 
 
+async def _install_web_pygame() -> None:
+    """WASM 上占位 pygame 无 init，须先 pip_install pygame-ce。"""
+    import aio.pep0723
+
+    await aio.pep0723.pip_install("pygame-ce")
+    await aio.pep0723.pip_install("pillow")
+    for name in list(sys.modules):
+        if name == "pygame" or name.startswith("pygame."):
+            sys.modules.pop(name, None)
+
+
 async def _main_async() -> None:
     if is_web():
         web_disable_chromakey()
-        for _ in range(100):
-            ensure_pygame_init()
-            import pygame
+        await _install_web_pygame()
+        ensure_pygame_init()
+        import pygame
 
-            if callable(getattr(pygame, "init", None)):
-                break
-            await asyncio.sleep(0.05)
-        else:
+        if not callable(getattr(pygame, "init", None)):
             raise RuntimeError("pygame-ce 未就绪：请刷新页面或重新部署网页版")
     else:
         ensure_pygame_init()

@@ -194,10 +194,12 @@ LEGACY_CUSTOM_SITE: list[tuple[str, str]] = [
         "            shell.interactive()\n"
         "        while True:\n"
         "            await asyncio.sleep(3600)",
-        '        platform.window.canvas.style.visibility = "visible"\n'
-        "        platform.window.config.gui_divider = 1\n"
-        "        platform.window.config.gui_debug = 1\n\n"
-        '        platform.run_main(PyConfig, loaderhome=assets, loadermain="main.py")\n\n'
+        '        await TopLevel_async_handler.start_toplevel(platform.shell, console=False)\n\n'
+        "        import aio.pep0723\n"
+        '        platform.window.infobox.innerText = "正在安装 pygame-ce…"\n'
+        '        await aio.pep0723.pip_install("pygame-ce")\n'
+        '        await aio.pep0723.pip_install("pillow")\n\n'
+        "        platform.run_main(PyConfig, loaderhome=assets, loadermain=None)\n\n"
         "        wait = 0\n"
         "        while embed.counter() < 0:\n"
         "            await asyncio.sleep(0.1)\n"
@@ -208,6 +210,12 @@ LEGACY_CUSTOM_SITE: list[tuple[str, str]] = [
         '            platform.window.infobox.innerText = "点击页面开始游戏"\n'
         "            while not platform.window.MM.UME:\n"
         "                await asyncio.sleep(0.1)\n\n"
+        "        platform.window.canvas.style.visibility = \"visible\"\n"
+        "        platform.window.config.gui_divider = 1\n"
+        "        platform.window.config.gui_debug = 1\n\n"
+        "        def ui_callback(pkg):\n"
+        '            platform.window.infobox.innerText = f"正在加载 {pkg}…"\n\n'
+        "        await shell.source(main, callback=ui_callback)\n\n"
         "        platform.window.transfer.hidden = True\n"
         '        platform.window.infobox.style.display = "none"\n'
         "        platform.window.window_resize()\n"
@@ -384,25 +392,37 @@ def _rename_archives() -> int:
 
 
 def _fix_web_startup(text: str) -> tuple[str, int]:
-    """避免 shell.source + asyncio.run 卡死，统一走 run_main(loadermain='main.py')。"""
+    """保持官方顺序：pip → run_main(None) → preload → shell.source(main)。"""
     n = 0
-    if 'loadermain=None' in text:
+    if 'loadermain="main.py"' in text and "await shell.source(main" not in text:
         text = text.replace(
-            "platform.run_main(PyConfig, loaderhome=assets, loadermain=None)",
             'platform.run_main(PyConfig, loaderhome=assets, loadermain="main.py")',
+            "platform.run_main(PyConfig, loaderhome=assets, loadermain=None)",
             1,
         )
         n += 1
-    block = (
-        "        await TopLevel_async_handler.start_toplevel(platform.shell, console=False)\n"
-        "        __import__(__name__).__file__ = main\n\n"
-        "        def ui_callback(pkg):\n"
-        '            platform.window.infobox.innerText = f"安装 {pkg}…"\n\n'
-        "        await shell.source(main, callback=ui_callback)\n\n"
-    )
-    if block in text:
-        text = text.replace(block, "", 1)
-        n += 1
+    if "await aio.pep0723.pip_install" not in text and "async def custom_site" in text:
+        needle = "        if not main.is_file():\n"
+        insert = (
+            "        await TopLevel_async_handler.start_toplevel(platform.shell, console=False)\n\n"
+            "        import aio.pep0723\n"
+            '        platform.window.infobox.innerText = "正在安装 pygame-ce…"\n'
+            '        await aio.pep0723.pip_install("pygame-ce")\n'
+            '        await aio.pep0723.pip_install("pillow")\n\n'
+        )
+        if needle in text and insert.strip() not in text:
+            text = text.replace(needle, insert + needle, 1)
+            n += 1
+    if "await shell.source(main" not in text and "loadermain=None" in text:
+        anchor = "        platform.window.window_resize()\n"
+        block = (
+            "        def ui_callback(pkg):\n"
+            '            platform.window.infobox.innerText = f"正在加载 {pkg}…"\n\n'
+            "        await shell.source(main, callback=ui_callback)\n\n"
+        )
+        if anchor in text and block not in text:
+            text = text.replace(anchor, block + anchor, 1)
+            n += 1
     return text, n
 
 
