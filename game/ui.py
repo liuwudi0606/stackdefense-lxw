@@ -74,6 +74,9 @@ class UI:
         self.f_lg = get_font(28 if not config.PORTRAIT else 24)
         self.f_title = get_font(36 if not config.PORTRAIT else 30)
         self._build_bar_h = config.BUILD_BAR_HEIGHT
+        self.build_bar_scroll_x = 0
+        self._build_bar_swipe_x: int | None = None
+        self._build_bar_h_drag: tuple[int, int] | None = None
         self._bg_tile = sprites.get("bg_tile")
         self._bg_tile_alt = sprites.get("bg_tile_alt") or self._bg_tile
 
@@ -438,7 +441,7 @@ class UI:
     def draw_world(self, surf: pygame.Surface, game: GameSession) -> None:
         from game.camera import camera_apply, view_zoom
 
-        refresh_stack_layout(len(game.towers), build_bar_h=self._build_bar_h)
+        refresh_stack_layout(len(game.towers), build_bar_h=self.build_bar_height(game))
         scale = stack_scale()
         vz = view_zoom()
         self._draw_bg(surf)
@@ -697,26 +700,134 @@ class UI:
         label = f"增益({n})" if n else "增益(B)"
         blit_in_rect(surf, self.f_sm, label, btn, (220, 225, 240), pad=4)
 
-    def build_bar_y(self) -> int:
-        return config.HEIGHT - self._build_bar_h
+    def _build_bar_layout(self, count: int) -> dict:
+        pad_x, pad_top = 8, 7
+        gap_x = 8
+        slot_w, slot_h = (108, 48) if config.PORTRAIT else (124, 50)
+        content_w = pad_x * 2 + max(0, count) * slot_w + max(0, count - 1) * gap_x
+        max_scroll_x = max(0, content_w - config.WIDTH)
+        return {
+            "slot_w": slot_w,
+            "slot_h": slot_h,
+            "gap_x": gap_x,
+            "pad_x": pad_x,
+            "pad_top": pad_top,
+            "content_w": content_w,
+            "max_scroll_x": max_scroll_x,
+            "total_h": config.BUILD_BAR_HEIGHT,
+        }
+
+    def build_bar_height(self, game: GameSession) -> int:
+        return config.BUILD_BAR_HEIGHT
+
+    def build_bar_y(self, game: GameSession | None = None) -> int:
+        return config.HEIGHT - config.BUILD_BAR_HEIGHT
+
+    def _build_bar_viewport(self, game: GameSession) -> pygame.Rect:
+        y = self.build_bar_y(game)
+        return pygame.Rect(0, y, config.WIDTH, config.BUILD_BAR_HEIGHT)
+
+    def _clamp_build_bar_scroll(self, game: GameSession) -> None:
+        max_s = self._build_bar_layout(len(game.build_bar_types()))["max_scroll_x"]
+        self.build_bar_scroll_x = max(0, min(max_s, self.build_bar_scroll_x))
+
+    def _build_bar_scroll_track(self, game: GameSession) -> tuple[pygame.Rect, pygame.Rect]:
+        vp = self._build_bar_viewport(game)
+        max_s = self._build_bar_layout(len(game.build_bar_types()))["max_scroll_x"]
+        track = pygame.Rect(vp.x + 6, vp.bottom - 6, vp.width - 12, 4)
+        if max_s <= 0:
+            return track, pygame.Rect(track.x, track.y, 0, 0)
+        tw = max(24, int(track.width * vp.width / (vp.width + max_s)))
+        tx = track.x + int((track.width - tw) * self.build_bar_scroll_x / max_s)
+        return track, pygame.Rect(tx, track.y, tw, track.height)
+
+    def build_bar_scroll_wheel(self, game: GameSession, delta_y: int) -> bool:
+        max_s = self._build_bar_layout(len(game.build_bar_types()))["max_scroll_x"]
+        if max_s <= 0:
+            return False
+        self.build_bar_scroll_x -= int(delta_y * 48)
+        self._clamp_build_bar_scroll(game)
+        return True
+
+    def try_begin_build_bar_scroll_drag(self, game: GameSession, mx: int, my: int) -> bool:
+        if not self._build_bar_viewport(game).collidepoint(mx, my):
+            return False
+        track, thumb = self._build_bar_scroll_track(game)
+        max_s = self._build_bar_layout(len(game.build_bar_types()))["max_scroll_x"]
+        if max_s <= 0:
+            return False
+        if thumb.width > 0 and thumb.collidepoint(mx, my):
+            self._build_bar_h_drag = (mx, self.build_bar_scroll_x)
+            return True
+        if track.collidepoint(mx, my):
+            tw = max(24, thumb.width)
+            rel = max(0, min(track.width - tw, mx - track.x - tw // 2))
+            self.build_bar_scroll_x = int(rel / max(1, track.width - tw) * max_s)
+            self._clamp_build_bar_scroll(game)
+            self._build_bar_h_drag = (mx, self.build_bar_scroll_x)
+            return True
+        return False
+
+    def update_build_bar_scroll_drag(self, game: GameSession, mx: int) -> bool:
+        if self._build_bar_h_drag is None:
+            return False
+        start_mx, start_scroll = self._build_bar_h_drag
+        track, _thumb = self._build_bar_scroll_track(game)
+        max_s = self._build_bar_layout(len(game.build_bar_types()))["max_scroll_x"]
+        tw = max(24, int(track.width * config.WIDTH / (config.WIDTH + max_s)))
+        travel = max(1, track.width - tw)
+        self.build_bar_scroll_x = start_scroll + int((mx - start_mx) / travel * max_s)
+        self._clamp_build_bar_scroll(game)
+        return True
+
+    def end_build_bar_scroll_drag(self) -> None:
+        self._build_bar_h_drag = None
+        self._build_bar_swipe_x = None
+
+    def update_build_bar_swipe(self, game: GameSession, mx: int, my: int) -> bool:
+        if game.build_drag or self._build_bar_h_drag is not None:
+            return False
+        vp = self._build_bar_viewport(game)
+        if not vp.collidepoint(mx, my):
+            self._build_bar_swipe_x = None
+            return False
+        max_s = self._build_bar_layout(len(game.build_bar_types()))["max_scroll_x"]
+        if max_s <= 0:
+            return False
+        if self._build_bar_swipe_x is None:
+            self._build_bar_swipe_x = mx
+            return False
+        dx = self._build_bar_swipe_x - mx
+        self._build_bar_swipe_x = mx
+        if abs(dx) < 1:
+            return False
+        self.build_bar_scroll_x += dx
+        self._clamp_build_bar_scroll(game)
+        return True
 
     def _build_bar_slots(self, game: GameSession) -> list[dict]:
-        y = self.build_bar_y()
-        x0 = 8
-        slot_w, slot_h = (108, 48) if config.PORTRAIT else (124, 50)
+        types = game.build_bar_types()
+        layout = self._build_bar_layout(len(types))
+        self._clamp_build_bar_scroll(game)
+        scroll_x = self.build_bar_scroll_x
+        bar_top = config.HEIGHT - layout["total_h"]
         slots = []
-        for tid in game.build_bar_types():
-            rect = pygame.Rect(x0, y + 7, slot_w, slot_h)
+        for i, tid in enumerate(types):
+            x0 = layout["pad_x"] + i * (layout["slot_w"] + layout["gap_x"]) - scroll_x
+            y0 = bar_top + layout["pad_top"]
+            rect = pygame.Rect(x0, y0, layout["slot_w"], layout["slot_h"])
             info_r = pygame.Rect(rect.right - 30, rect.centery - 12, 24, 24)
             pick_r = pygame.Rect(rect.x, rect.y, rect.width - 34, rect.height)
             slots.append({"id": tid, "rect": rect, "info": info_r, "pick": pick_r})
-            x0 += slot_w + 8
         return slots
 
     def draw_build_bar(self, surf: pygame.Surface, game: GameSession) -> None:
-        bar_h = self._build_bar_h
-        y = self.build_bar_y()
-        pygame.draw.rect(surf, (22, 26, 34), pygame.Rect(0, y, config.WIDTH, bar_h))
+        layout = self._build_bar_layout(len(game.build_bar_types()))
+        bar_h = layout["total_h"]
+        vp = self._build_bar_viewport(game)
+        pygame.draw.rect(surf, (22, 26, 34), vp)
+        old_clip = surf.get_clip()
+        surf.set_clip(vp)
         for slot in self._build_bar_slots(game):
             tid = slot["id"]
             rect = slot["rect"]
@@ -745,6 +856,13 @@ class UI:
             surf.set_clip(old_clip)
             info_r = slot["info"]
             draw_info_icon(surf, info_r.centerx, info_r.centery, self.f_xs, 9)
+        surf.set_clip(old_clip)
+
+        track, thumb = self._build_bar_scroll_track(game)
+        if layout["max_scroll_x"] > 0:
+            pygame.draw.rect(surf, (38, 42, 52), track, border_radius=2)
+            if thumb.width > 0:
+                pygame.draw.rect(surf, (95, 115, 155), thumb, border_radius=2)
 
         if game.build_info_tower:
             self._draw_build_info_popup(surf, game)
@@ -753,8 +871,9 @@ class UI:
         tid = game.build_info_tower
         if not tid:
             return pygame.Rect(0, 0, 0, 0)
-        max_h = min(240, config.HEIGHT - self._build_bar_h - 40)
-        panel = pygame.Rect(config.WIDTH // 2 - 130, self.build_bar_y() - max_h - 8, 260, max_h)
+        bar_h = self.build_bar_height(game)
+        max_h = min(240, config.HEIGHT - bar_h - 40)
+        panel = pygame.Rect(config.WIDTH // 2 - 130, self.build_bar_y(game) - max_h - 8, 260, max_h)
         panel.clamp_ip(pygame.Rect(8, 8, config.WIDTH - 16, config.HEIGHT - 16))
         return panel
 
@@ -793,7 +912,7 @@ class UI:
             if panel.collidepoint(mx, my):
                 return ("none", None)
             return ("close_info", None)
-        if my < self.build_bar_y():
+        if my < self.build_bar_y(game):
             return ("none", None)
         for slot in self._build_bar_slots(game):
             if slot["info"].collidepoint(mx, my):
@@ -1073,7 +1192,7 @@ class UI:
         return action, stats
 
     def draw_tower_menu(self, surf: pygame.Surface, game: GameSession) -> None:
-        refresh_stack_layout(len(game.towers), build_bar_h=self._build_bar_h)
+        refresh_stack_layout(len(game.towers), build_bar_h=self.build_bar_height(game))
         if game.selected_tower_index is None:
             return
         idx = game.selected_tower_index

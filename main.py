@@ -238,13 +238,16 @@ async def _main_async() -> None:
                                 min(max_ds, game.debug_scroll - event.y * 28),
                             )
                             continue
+                gpos = display.game_mouse_pos()
+                if gpos and gpos[1] >= ui.build_bar_y(game):
+                    if ui.build_bar_scroll_wheel(game, event.y):
+                        continue
                 if (
                     game.state == GameState.PLAYING
                     and not game.debug_menu_open
                     and not game.buff_panel_open
                 ):
-                    gpos = display.game_mouse_pos()
-                    if gpos and gpos[1] < ui.build_bar_y() - 6:
+                    if gpos and gpos[1] < ui.build_bar_y(game) - 6:
                         from game.camera import apply_wheel_zoom
 
                         apply_wheel_zoom(event.y, gpos[0], gpos[1])
@@ -257,6 +260,10 @@ async def _main_async() -> None:
                     gpos = _event_pos(display, event.pos)
                     if gpos is None:
                         continue
+                    if ui.update_build_bar_scroll_drag(game, gpos[0]):
+                        continue
+                    if ui.update_build_bar_swipe(game, gpos[0], gpos[1]):
+                        continue
                     if game.scroll_drag:
                         if game.scroll_drag.kind.startswith("debug"):
                             if debug_ui.update_scroll_drag(game, gpos[1], ui.f_sm):
@@ -266,6 +273,7 @@ async def _main_async() -> None:
 
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1 and game:
                 ui.end_scroll_drag(game)
+                ui.end_build_bar_scroll_drag()
                 if app_state == AppState.PLAYING and game.build_drag:
                     gpos = _event_pos(display, event.pos)
                     if gpos and game.state == GameState.PLAYING:
@@ -425,6 +433,8 @@ async def _main_async() -> None:
                         game.buff_panel_open = not game.buff_panel_open
                         if game.buff_panel_open:
                             game.ui_scroll_y = 0
+                        continue
+                    if ui.try_begin_build_bar_scroll_drag(game, mx, my):
                         continue
                     act, tid = ui.build_bar_hit(mx, my, game)
                     if act == "close_info":
