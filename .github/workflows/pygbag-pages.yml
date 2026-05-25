@@ -29,6 +29,7 @@ jobs:
         run: |
           pip install pygame-ce pillow pygbag soundfile
           python tools/gen_sprites.py
+          python tools/fetch_font.py
           python -c "from game.audio import ensure_sounds, ensure_ogg_sounds; ensure_sounds(); ensure_ogg_sounds()"
 
       - name: Build web package

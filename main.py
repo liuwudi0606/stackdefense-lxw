@@ -15,6 +15,9 @@ if sys.platform in ("emscripten", "wasi"):
 
 import pygame
 
+if sys.platform in ("emscripten", "wasi") and not pygame.get_init():
+    pygame.init()
+
 import config
 from game.assets import SpriteBank
 from game.audio import AudioManager

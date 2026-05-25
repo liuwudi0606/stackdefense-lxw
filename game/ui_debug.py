@@ -47,9 +47,7 @@ _DEBUG_SCROLL_GAP = 2
 
 class DebugUI:
 
-    PANEL = pygame.Rect(config.WIDTH // 2 - 340, 36, 680, config.HEIGHT - 72)
-
-
+    _PANEL = (config.WIDTH // 2 - 340, 36, 680, config.HEIGHT - 72)
 
     QUICK = [
 
@@ -89,7 +87,9 @@ class DebugUI:
 
     _FOOTER_H = 40
 
-
+    @property
+    def PANEL(self) -> pygame.Rect:
+        return pygame.Rect(self._PANEL)
 
     def panel(self) -> pygame.Rect:
 

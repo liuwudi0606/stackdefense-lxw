@@ -51,6 +51,9 @@ def resolve_font_path() -> Path | None:
 def get_font(size: int, bold: bool = False) -> "pygame.font.Font":
     import pygame
 
+    if not pygame.get_init():
+        pygame.init()
+
     key = (size, bold)
     if key in _cache:
         return _cache[key]
@@ -62,10 +65,17 @@ def get_font(size: int, bold: bool = False) -> "pygame.font.Font":
             return font
         except Exception:
             pass
-    # 最后兜底：仍可能无法显示中文
-    font = pygame.font.SysFont("arial", size)
-    _cache[key] = font
-    return font
+    for fallback in (
+        lambda: pygame.font.Font(None, size),
+        lambda: pygame.font.SysFont("arial", size),
+    ):
+        try:
+            font = fallback()
+            _cache[key] = font
+            return font
+        except Exception:
+            continue
+    raise RuntimeError("无法初始化 pygame 字体（网页版需 assets/fonts/NotoSansSC-Regular.otf）")
 
 
 def render(text: str, size: int, color: tuple[int, int, int]) -> "pygame.Surface":
