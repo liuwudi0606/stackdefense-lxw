@@ -2,6 +2,7 @@
 ========================================
 公网地址: https://lxwwudi0606.github.io/stackdefense-lxw/
 GitHub 仓库: https://github.com/lxwwudi0606/stackdefense-lxw
+状态: 未完成
 
 分享给朋友:
   https://lxwwudi0606.github.io/stackdefense-lxw/
@@ -14,3 +15,19 @@ GitHub 仓库: https://github.com/lxwwudi0606/stackdefense-lxw
 
 重新部署: 双击 deploy_web_lxw.bat
 本地预览: 双击 preview_web.bat
+
+未安装 GitHub CLI (gh) 时，请先在网页创建空仓库:
+  https://github.com/new  仓库名填 stackdefense-lxw，不要勾选 README
+然后在项目目录执行:
+  git remote add origin https://github.com/lxwwudi0606/stackdefense-lxw.git
+  git add -A
+  git commit -m "deploy: GitHub Pages (lxw)"
+  git push -u origin main
+
+或安装 gh 后重新运行 deploy_web_lxw.bat:
+  https://cli.github.com/
+
+推送失败常见原因:
+  1. GitHub 上尚未创建该仓库
+  2. 未登录 GitHub（可用 GitHub Desktop 或凭据管理器）
+  3. 仓库地址应为 https://github.com/lxwwudi0606/stackdefense-lxw
