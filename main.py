@@ -253,6 +253,15 @@ async def _main_async() -> None:
                         apply_wheel_zoom(event.y, gpos[0], gpos[1])
                         continue
 
+            if (
+                event.type == pygame.MOUSEMOTION
+                and app_state == AppState.SHOP
+                and pygame.mouse.get_pressed()[0]
+            ):
+                gpos = _event_pos(display, event.pos)
+                if gpos and ui.update_meta_shop_scroll_drag(gpos[1], meta):
+                    continue
+
             if event.type == pygame.MOUSEMOTION and game and app_state == AppState.PLAYING:
                 if pygame.mouse.get_pressed()[0]:
                     gpos = _event_pos(display, event.pos)
@@ -278,6 +287,8 @@ async def _main_async() -> None:
                         elif ui.update_scroll_drag(game, gpos[0], gpos[1]):
                             continue
 
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                ui.end_meta_shop_scroll_drag()
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1 and game:
                 from game.camera import end_drag_pan
 
@@ -357,15 +368,13 @@ async def _main_async() -> None:
                     continue
 
                 if app_state == AppState.SHOP:
+                    if ui.try_begin_meta_shop_scroll_drag(mx, my, meta):
+                        continue
                     uid = ui.meta_shop_hit(mx, my, meta)
                     if uid and meta.buy(uid):
                         audio.play("upgrade")
-                    else:
-                        view = pygame.Rect(
-                            36, ui.META_SHOP_TOP, config.WIDTH - 72, ui.META_SHOP_VIEW_H
-                        )
-                        if not view.collidepoint(mx, my):
-                            app_state = AppState.MENU
+                    elif not ui.meta_shop_panel_rect().collidepoint(mx, my):
+                        app_state = AppState.MENU
                     continue
 
                 if app_state != AppState.PLAYING or game is None:

@@ -76,6 +76,7 @@ class UI:
         self._build_bar_h = config.BUILD_BAR_HEIGHT
         self.build_bar_scroll_x = 0
         self._build_bar_h_drag: tuple[int, int] | None = None
+        self._meta_shop_scroll_drag = None
         self._bg_tile = sprites.get("bg_tile")
         self._bg_tile_alt = sprites.get("bg_tile_alt") or self._bg_tile
 
@@ -269,11 +270,86 @@ class UI:
 
     @property
     def META_SHOP_ITEM_H(self) -> int:
-        return 64 if config.PORTRAIT else 68
+        return 78 if config.PORTRAIT else 82
 
     @property
     def META_SHOP_VIEW_H(self) -> int:
         return max(280, config.HEIGHT - 200) if config.PORTRAIT else 430
+
+    def meta_shop_view_rect(self) -> pygame.Rect:
+        return pygame.Rect(36, self.META_SHOP_TOP, config.WIDTH - 72, self.META_SHOP_VIEW_H)
+
+    def meta_shop_panel_rect(self) -> pygame.Rect:
+        """列表 + 滚动条整体区域（点击外侧才关闭）。"""
+        return pygame.Rect(28, self.META_SHOP_TOP, config.WIDTH - 56, self.META_SHOP_VIEW_H)
+
+    def meta_shop_scroll_track_rect(self) -> pygame.Rect:
+        return pygame.Rect(
+            config.WIDTH - 28, self.META_SHOP_TOP + 4, 8, self.META_SHOP_VIEW_H - 8
+        )
+
+    def _meta_shop_thumb(self, max_scroll: int, unlock_count: int) -> pygame.Rect:
+        track = self.meta_shop_scroll_track_rect()
+        view = self.meta_shop_view_rect()
+        if max_scroll <= 0:
+            return pygame.Rect(track.x, track.y, track.width, 0)
+        total_h = max(1, unlock_count * self.META_SHOP_ITEM_H)
+        thumb_h = max(24, int(track.height * view.height / total_h))
+        thumb_y = track.y + int(
+            (track.height - thumb_h) * self.meta_shop_scroll / max_scroll
+        )
+        return pygame.Rect(track.x, thumb_y, track.width, thumb_h)
+
+    def _meta_shop_scroll_from_thumb_top(
+        self, thumb_top: int, max_scroll: int, unlock_count: int
+    ) -> int:
+        from game.ui_scroll import clamp_scroll
+
+        track = self.meta_shop_scroll_track_rect()
+        thumb = self._meta_shop_thumb(max_scroll, unlock_count)
+        travel = max(1, track.height - thumb.height)
+        rel = max(0, min(travel, thumb_top - track.y))
+        return clamp_scroll(int(rel / travel * max_scroll), max_scroll)
+
+    def try_begin_meta_shop_scroll_drag(
+        self, mx: int, my: int, meta: MetaProgress
+    ) -> bool:
+        from game.ui_scroll import start_scroll_drag
+
+        n = len(meta.list_unlocks())
+        max_s = self._meta_shop_max_scroll(n)
+        if max_s <= 0:
+            return False
+        track = self.meta_shop_scroll_track_rect()
+        if not track.collidepoint(mx, my):
+            return False
+        thumb = self._meta_shop_thumb(max_s, n)
+        if thumb.height > 0 and thumb.collidepoint(mx, my):
+            self._meta_shop_scroll_drag = start_scroll_drag("meta_shop", mx, my, thumb)
+            return True
+        self.meta_shop_scroll = self._meta_shop_scroll_from_thumb_top(
+            my - thumb.height // 2, max_s, n
+        )
+        thumb = self._meta_shop_thumb(max_s, n)
+        self._meta_shop_scroll_drag = start_scroll_drag("meta_shop", mx, my, thumb)
+        return True
+
+    def update_meta_shop_scroll_drag(self, my: int, meta: MetaProgress) -> bool:
+        if not self._meta_shop_scroll_drag:
+            return False
+        n = len(meta.list_unlocks())
+        max_s = self._meta_shop_max_scroll(n)
+        if max_s <= 0:
+            self._meta_shop_scroll_drag = None
+            return False
+        thumb_top = my - self._meta_shop_scroll_drag.grab_offset_y
+        self.meta_shop_scroll = self._meta_shop_scroll_from_thumb_top(
+            thumb_top, max_s, n
+        )
+        return True
+
+    def end_meta_shop_scroll_drag(self) -> None:
+        self._meta_shop_scroll_drag = None
 
     def draw_menu(self, surf: pygame.Surface, meta: MetaProgress, has_save: bool = False) -> None:
         self._draw_bg(surf)
@@ -333,22 +409,30 @@ class UI:
         unlocks = meta.list_unlocks()
         max_scroll = self._meta_shop_max_scroll(len(unlocks))
         self.meta_shop_scroll = max(0, min(max_scroll, self.meta_shop_scroll))
-        view = pygame.Rect(36, self.META_SHOP_TOP, config.WIDTH - 72, self.META_SHOP_VIEW_H)
+        view = self.meta_shop_view_rect()
+        panel = self.meta_shop_panel_rect()
         pygame.draw.rect(surf, (28, 32, 48), view, border_radius=8)
+        pygame.draw.rect(surf, (22, 26, 38), panel, 1, border_radius=8)
         old_clip = surf.get_clip()
         surf.set_clip(view)
         y = self.META_SHOP_TOP + 6 - self.meta_shop_scroll
         for u in unlocks:
-            rect = pygame.Rect(44, y, config.WIDTH - 88, self.META_SHOP_ITEM_H - 6)
+            rect = pygame.Rect(44, y, config.WIDTH - 88, self.META_SHOP_ITEM_H - 8)
             if rect.bottom < view.top or rect.top > view.bottom:
                 y += self.META_SHOP_ITEM_H
                 continue
             col = (50, 70, 55) if u["owned"] else (55, 65, 90) if u["can_buy"] else (45, 48, 58)
             pygame.draw.rect(surf, col, rect, border_radius=6)
-            name_r = pygame.Rect(rect.x + 10, rect.y + 6, rect.width - 128, 24)
-            blit_in_rect(surf, self.f_md, u["name"], name_r, (230, 235, 245), align="left", pad=4)
-            desc_r = pygame.Rect(rect.x + 10, rect.y + 30, rect.width - 128, 30)
-            blit_wrapped(surf, self.f_xs, u["desc"], desc_r, (160, 170, 190), pad=2)
+            item_clip = rect.clip(view)
+            if item_clip.width > 0 and item_clip.height > 0:
+                surf.set_clip(item_clip)
+                name_r = pygame.Rect(rect.x + 10, rect.y + 8, rect.width - 120, 22)
+                blit_in_rect(
+                    surf, self.f_md, u["name"], name_r, (230, 235, 245), align="left", pad=2
+                )
+                desc_r = pygame.Rect(rect.x + 10, rect.y + 32, rect.width - 120, rect.height - 40)
+                blit_wrapped(surf, self.f_xs, u["desc"], desc_r, (160, 170, 190), pad=2)
+                surf.set_clip(view)
             if u["owned"]:
                 st = "已拥有"
             elif u["can_buy"]:
@@ -357,30 +441,31 @@ class UI:
                 st = "需前置"
             else:
                 st = f"{u['cost']} 代币"
-            st_r = pygame.Rect(rect.right - 118, rect.y + 10, 108, rect.height - 20)
+            st_r = pygame.Rect(rect.right - 112, rect.y + 12, 100, rect.height - 24)
             blit_in_rect(surf, self.f_xs, st, st_r, (200, 210, 230), align="center", pad=2)
             y += self.META_SHOP_ITEM_H
         surf.set_clip(old_clip)
         if max_scroll > 0:
-            track = pygame.Rect(config.WIDTH - 28, self.META_SHOP_TOP + 4, 8, self.META_SHOP_VIEW_H - 8)
+            track = self.meta_shop_scroll_track_rect()
             pygame.draw.rect(surf, (40, 45, 60), track, border_radius=4)
-            thumb_h = max(24, int(track.height * view.height / (len(unlocks) * self.META_SHOP_ITEM_H)))
-            thumb_y = track.y + int(
-                (track.height - thumb_h) * self.meta_shop_scroll / max_scroll
-            )
-            pygame.draw.rect(surf, (100, 120, 170), (track.x, thumb_y, track.width, thumb_h), border_radius=4)
+            thumb = self._meta_shop_thumb(max_scroll, len(unlocks))
+            if thumb.height > 0:
+                pygame.draw.rect(surf, (100, 120, 170), thumb, border_radius=4)
+        hint = "滚轮/拖动右侧滑块浏览 · 点击空白处关闭"
         surf.blit(
-            self.f_xs.render("滚轮浏览 · 点击空白处关闭", True, (130, 140, 160)),
+            self.f_xs.render(hint, True, (130, 140, 160)),
             (40, config.HEIGHT - 28),
         )
 
     def meta_shop_hit(self, mx: int, my: int, meta: MetaProgress) -> str | None:
-        view = pygame.Rect(36, self.META_SHOP_TOP, config.WIDTH - 72, self.META_SHOP_VIEW_H)
+        if self.meta_shop_scroll_track_rect().collidepoint(mx, my):
+            return None
+        view = self.meta_shop_view_rect()
         if not view.collidepoint(mx, my):
             return None
         y = self.META_SHOP_TOP + 6 - self.meta_shop_scroll
         for u in meta.list_unlocks():
-            rect = pygame.Rect(44, y, config.WIDTH - 88, self.META_SHOP_ITEM_H - 6)
+            rect = pygame.Rect(44, y, config.WIDTH - 88, self.META_SHOP_ITEM_H - 8)
             if rect.collidepoint(mx, my) and u["can_buy"]:
                 return u["id"]
             y += self.META_SHOP_ITEM_H
