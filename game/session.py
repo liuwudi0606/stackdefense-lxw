@@ -177,6 +177,7 @@ class GameSession:
         self.debug_scroll = 0
         self.debug_buff_info: str | None = None
         self.build_info_tower: str | None = None
+        self.base_upgrade_info: str | None = None
         self.build_drag: str | None = None
         self.ui_scroll_y = 0
         self.scroll_drag: ScrollDragState | None = None
@@ -281,7 +282,10 @@ class GameSession:
         if index < 0 or index >= len(self.upgrade_choices):
             return
         card = self.upgrade_choices[index]
+        old_hp_stat = self.stats.enemy_hp_mult
         self.upgrades.apply_choice(card, self.stats, self)
+        if "enemy_hp_mult" in (card.get("effect") or {}):
+            self.rescale_living_enemies_hp_buff(old_hp_stat)
         self.picked_upgrades.append(card["name"])
         if self.pending_level_ups > 0:
             self.upgrade_choices = self.upgrades.roll_four(
@@ -309,8 +313,16 @@ class GameSession:
             return 1.0
         return 1.0 / (1.0 + config.TOWER_TYPE_STACK_PENALTY * (n - 1))
 
-    def enemy_hp_scale(self) -> float:
-        mult = 1.0 + self.stats.enemy_hp_mult
+    @staticmethod
+    def enemy_hp_buff_mult(stat_mult: float) -> float:
+        """局内 enemy_hp_mult（虚弱/贪婪等），削弱下限 ENEMY_HP_DEBUFF_MIN_MULT。"""
+        if stat_mult >= 0:
+            return 1.0 + stat_mult
+        floor = float(getattr(config, "ENEMY_HP_DEBUFF_MIN_MULT", 0.5))
+        return max(floor, 1.0 + stat_mult)
+
+    def enemy_hp_wave_scale(self) -> float:
+        mult = 1.0
         mult *= 1.0 + config.WAVE_HP_TIME_SCALE * self.waves.elapsed
         mult *= 1.0 + config.WAVE_HP_PER_WAVE_SCALE * self.waves.waves_triggered
         if self.waves.surge_count > 0:
@@ -318,6 +330,22 @@ class GameSession:
         if self.endless_mode and self.waves.all_scheduled_spawned:
             mult *= 1.0 + config.WAVE_HP_ENDLESS_PER_CYCLE * self.waves.endless_cycle
         return mult
+
+    def enemy_hp_scale(self) -> float:
+        return self.enemy_hp_buff_mult(self.stats.enemy_hp_mult) * self.enemy_hp_wave_scale()
+
+    def rescale_living_enemies_hp_buff(self, old_stat_mult: float) -> None:
+        """虚弱射线等变更后，按比例调整场上敌人生命（仅 Buff 部分，不含波次缩放）。"""
+        old_b = self.enemy_hp_buff_mult(old_stat_mult)
+        new_b = self.enemy_hp_buff_mult(self.stats.enemy_hp_mult)
+        if abs(new_b - old_b) < 1e-6:
+            return
+        ratio = new_b / old_b
+        for e in self.enemies:
+            if not e.alive:
+                continue
+            e.hp = max(1.0, e.hp * ratio)
+            e.max_hp = max(1.0, e.max_hp * ratio)
 
     def enemy_wave_stat_scale(self) -> tuple[float, float]:
         """随波次与时间提高伤害与移速，返回 (damage_mult, speed_mult)。"""
@@ -461,10 +489,12 @@ class GameSession:
     def open_base_menu(self) -> None:
         self.close_tower_ui()
         self.close_enemy_ui()
+        self.base_upgrade_info = None
         self.ui_scroll_y = 0
         self.state = GameState.BASE_MENU
 
     def close_base_ui(self) -> None:
+        self.base_upgrade_info = None
         if self.state == GameState.BASE_MENU:
             self.state = GameState.PLAYING
 
@@ -819,7 +849,7 @@ class GameSession:
 
     def _update_wind_tower(self, tower: TowerFloor, dt: float) -> None:
         tdef = self.tower_defs[tower.type_id]
-        rng = wind_range(tdef, self.stats)
+        rng = wind_range(tdef, self.stats, tower)
         target = wind_aim_target(self, rng)
         if not target:
             return

@@ -205,16 +205,12 @@ def _wind_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None"
     tw = tower if tower else _Lvl()
     half_deg = math.degrees(wind_fan_half_angle_rad(tdef, tw, game.stats.wind_fan_mult)) * 2
     kb = wind_knockback(tdef, tw, game.stats.wind_knockback_mult)
-    rate = (
-        wind_fire_rate(tdef, tower, game.stats)
-        if tower
-        else tdef["fire_rate"] * (1.0 + game.stats.tower_fire_rate_mult + game.stats.wind_rate_mult)
-    )
-    rng = int(wind_range(tdef, game.stats))
+    rate = wind_fire_rate(tdef, tower, game.stats)
+    rng = int(wind_range(tdef, game.stats, tw if tower else None))
     ring_out = int(fixed_outer_radius())
     return [
         "伤害 无（仅击退）",
-        f"攻速 {rate:.2f}/秒",
+        f"吹袭 {rate:.1f}/秒（固定）",
         f"塔射程 {rng} · 固定圈 {int(fixed_inner_radius())}/{ring_out}（中外环 50% 击退）",
         f"扇形宽度 {half_deg:.0f}°",
         f"击退力度 {kb:.0f}",

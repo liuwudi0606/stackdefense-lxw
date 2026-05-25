@@ -325,6 +325,10 @@ async def _main_async() -> None:
                     if game.build_info_tower:
                         game.build_info_tower = None
                         continue
+                    if game.state == GameState.BASE_MENU and game.base_upgrade_info:
+                        game.base_upgrade_info = None
+                        game.ui_scroll_y = 0
+                        continue
                     if game.state in (
                         GameState.TOWER_MENU,
                         GameState.TOWER_SWAP,
@@ -410,6 +414,16 @@ async def _main_async() -> None:
                     hit = ui.base_menu_hit(mx, my, game)
                     if hit == "close":
                         game.close_base_ui()
+                    elif hit == "base_info_close":
+                        game.base_upgrade_info = None
+                        game.ui_scroll_y = 0
+                    elif hit and hit.startswith("base_info:"):
+                        cid = hit[10:]
+                        if game.base_upgrade_info == cid:
+                            game.base_upgrade_info = None
+                        else:
+                            game.base_upgrade_info = cid
+                            game.ui_scroll_y = 0
                     elif hit and hit.startswith("base_up:"):
                         game.buy_base_upgrade(hit[8:])
                     elif hit is None and ui.try_begin_scroll_drag(game, mx, my):

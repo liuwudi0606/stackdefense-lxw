@@ -53,12 +53,14 @@
     "attack": "wind",
     "cost": 40,
     "range": 400,
-    "fire_rate": 0.55,
+    "fire_rate": 1.0,
     "fan_angle_deg": 44,
-    "fan_angle_per_level": 9,
+    "fan_angle_per_level": 0,
     "knockback": 38,
+    "range_per_level": 0.11,
+    "knockback_per_level": 0.18,
     "color": [90, 200, 170],
-    "desc": "扇形气流击退敌人，无伤害；等级提升扩大扇面、缩短间隔"
+    "desc": "扇形击退，固定每秒 1 次；升级加强射程与推力"
   },
   "mint": {
     "name": "钱塔",

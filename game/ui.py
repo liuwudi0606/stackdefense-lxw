@@ -153,6 +153,17 @@ class UI:
             e = game.enemies[game.selected_enemy_index]
             lines = enemy_detail_lines(game, e)
             return ("enemy", self._detail_content_rect(stats), lines)
+        if game.state == GameState.BASE_MENU and game.base_upgrade_info:
+            panel = self._base_upgrade_info_panel_rect(game)
+            card = game.base_upgrades.find(game.base_upgrade_info)
+            if card:
+                from game.upgrades import upgrade_detail_lines
+
+                stacks = game.base_upgrades.stacks(
+                    game.stats, game.base_upgrade_info
+                )
+                lines = upgrade_detail_lines(card, stacks, game.stats)
+                return ("base_up_info", self._detail_content_rect(panel), lines)
         if game.state == GameState.BASE_MENU:
             _panel, stats, upgrades, _close = self._base_menu_layout(game)
             return (
@@ -1338,19 +1349,66 @@ class UI:
             lines.append("")
         return lines
 
-    def _base_menu_upgrade_buttons(
+    def _base_menu_upgrade_rows(
         self, game: GameSession, upgrades: pygame.Rect, scroll_y: int
-    ) -> list[tuple[str, pygame.Rect]]:
+    ) -> list[dict]:
         row_h = 44
-        buttons: list[tuple[str, pygame.Rect]] = []
+        info_w = 28
+        rows: list[dict] = []
         inner = self._scroll_inner(self._detail_content_rect(upgrades))
         y = inner.y - scroll_y
         for card in sorted(game.base_upgrades.pool, key=lambda c: c.get("name", "")):
-            r = pygame.Rect(upgrades.x + 4, y, upgrades.width - 8, row_h - 4)
-            if r.bottom >= upgrades.y and r.top <= upgrades.bottom:
-                buttons.append((f"base_up:{card['id']}", r))
+            full = pygame.Rect(upgrades.x + 4, y, upgrades.width - 8, row_h - 4)
+            if full.bottom >= upgrades.y and full.top <= upgrades.bottom:
+                info_r = pygame.Rect(
+                    full.right - info_w - 2, full.y + 3, info_w, full.height - 6
+                )
+                buy_r = pygame.Rect(full.x, full.y, full.width - info_w - 4, full.height)
+                rows.append({"id": card["id"], "buy": buy_r, "info": info_r, "card": card})
             y += row_h
-        return buttons
+        return rows
+
+    def _base_upgrade_info_panel_rect(self, game: GameSession) -> pygame.Rect:
+        panel, _stats, _upg, _close = self._base_menu_layout(game)
+        return pygame.Rect(
+            panel.x + 10,
+            panel.y + 36,
+            panel.width - 20,
+            max(120, panel.height - 84),
+        )
+
+    def _draw_base_upgrade_info_popup(self, surf: pygame.Surface, game: GameSession) -> None:
+        cid = game.base_upgrade_info
+        if not cid:
+            return
+        card = game.base_upgrades.find(cid)
+        if not card:
+            return
+        from game.upgrades import upgrade_detail_lines
+
+        panel = self._base_upgrade_info_panel_rect(game)
+        overlay = pygame.Surface((config.WIDTH, config.HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 90))
+        surf.blit(overlay, (0, 0))
+        stacks = game.base_upgrades.stacks(game.stats, cid)
+        lines = upgrade_detail_lines(card, stacks, game.stats)
+        cost = game.base_upgrades.purchase_cost(card, game.stats)
+        lines.insert(1, f"下一级费用 {cost} 金")
+        content = self._detail_content_rect(panel)
+        _total, max_s = self._scroll_metrics(lines, content)
+        scroll_y = self._apply_scroll(game, game.ui_scroll_y, max_s)
+        self._draw_detail_panel(
+            surf,
+            panel,
+            f"{card['name']} · 说明",
+            lines,
+            scroll_y,
+            border=(100, 150, 120),
+            title_color=(220, 255, 220),
+        )
+        close_r = pygame.Rect(panel.right - 28, panel.y + 6, 22, 22)
+        pygame.draw.rect(surf, (60, 65, 80), close_r, border_radius=4)
+        blit_in_rect(surf, self.f_xs, "×", close_r, (240, 240, 250), pad=0)
 
     def _enemy_menu_layout(self, game: GameSession, index: int) -> tuple[pygame.Rect, pygame.Rect]:
         e = game.enemies[index]
@@ -1550,41 +1608,53 @@ class UI:
         inner = self._scroll_inner(upg_content)
         clip = surf.get_clip()
         surf.set_clip(upgrades)
-        y = inner.y - scroll_y
-        for card in sorted(game.base_upgrades.pool, key=lambda c: c.get("name", "")):
+        for row in self._base_menu_upgrade_rows(game, upgrades, scroll_y):
+            card = row["card"]
             label = base_upgrade_button_label(game, card)
             ok, _ = game.base_upgrades.can_purchase(game, card["id"])
             maxed = game.base_upgrades.is_maxed(game.stats, card)
-            row = pygame.Rect(upgrades.x + 4, y, upgrades.width - 8, 40)
-            if row.bottom < upgrades.y or row.top > upgrades.bottom:
-                y += 44
-                continue
+            buy_r = row["buy"]
             if maxed:
                 col = (55, 58, 62)
             elif ok:
                 col = (55, 85, 70)
             else:
                 col = (52, 52, 58)
-            pygame.draw.rect(surf, col, row, border_radius=4)
-            blit_in_rect(surf, self.f_sm, label, row, (235, 240, 245), pad=6)
-            y += 44
+            pygame.draw.rect(surf, col, buy_r, border_radius=4)
+            blit_in_rect(surf, self.f_sm, label, buy_r, (235, 240, 245), pad=4)
+            draw_info_icon(
+                surf, row["info"].centerx, row["info"].centery, self.f_xs, 9
+            )
         surf.set_clip(clip)
         self._draw_scrollbar(surf, upgrades, scroll_y, max_s)
+
+        if game.base_upgrade_info:
+            self._draw_base_upgrade_info_popup(surf, game)
 
         pygame.draw.rect(surf, (60, 62, 72), close_r, border_radius=4)
         blit_in_rect(surf, self.f_sm, "关闭", close_r, (235, 238, 245), align="center", pad=6)
 
     def base_menu_hit(self, mx: int, my: int, game: GameSession) -> str | None:
         _panel, stats, upgrades, close_r = self._base_menu_layout(game)
+        if game.base_upgrade_info:
+            panel = self._base_upgrade_info_panel_rect(game)
+            close_info = pygame.Rect(panel.right - 28, panel.y + 6, 22, 22)
+            if close_info.collidepoint(mx, my):
+                return "base_info_close"
+            if panel.collidepoint(mx, my):
+                return None
+            return "base_info_close"
         if close_r.collidepoint(mx, my):
             return "close"
         upg_lines = self._base_upgrade_scroll_lines(game)
         upg_content = self._detail_content_rect(upgrades)
         _total, max_s = self._scroll_metrics(upg_lines, upg_content)
         scroll_y = self._apply_scroll(game, game.ui_scroll_y, max_s)
-        for key, rect in self._base_menu_upgrade_buttons(game, upgrades, scroll_y):
-            if rect.collidepoint(mx, my):
-                return key
+        for row in self._base_menu_upgrade_rows(game, upgrades, scroll_y):
+            if row["info"].collidepoint(mx, my):
+                return f"base_info:{row['id']}"
+            if row["buy"].collidepoint(mx, my):
+                return f"base_up:{row['id']}"
         if stats.collidepoint(mx, my) or upgrades.collidepoint(mx, my):
             return None
         return "close"

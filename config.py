@@ -96,6 +96,7 @@ GUARD_SPAWN_RING_RADIUS = 78
 GUARD_SPAWN_ANGLE_SPREAD = 0.35
 # 风塔击退位移持续时间（秒），与 knockback 距离配合决定滑动速度
 WIND_KNOCKBACK_DURATION = 0.22
+WIND_FIRE_RATE = 1.0
 BASE_AURA_RADIUS = 120
 BASE_PULSE_RADIUS = 100
 BASE_PULSE_DAMAGE = 15
@@ -143,6 +144,9 @@ NORMAL_WAVE_EARLY_MULT = 1.0
 NORMAL_WAVE_EARLY_RAMP_SEC = 150.0
 # 随对战时间略微抬高敌人生命（无尽轮次额外叠加在 spawn_enemy）
 # 普通模式约 30 分钟；随时间抬高敌人生命（1800s 时约 +105%）
+# 虚弱射线等减敌人生命：合计削弱最多 50%（生命倍率不低于 0.5）
+ENEMY_HP_DEBUFF_MIN_MULT = 0.5
+
 WAVE_HP_TIME_SCALE = 0.00058
 WAVE_HP_ENDLESS_PER_CYCLE = 0.045
 # 每触发一条预定波次（waves.json 条目）额外变强

@@ -20,27 +20,33 @@ def _angle_diff(a: float, b: float) -> float:
 
 
 def wind_fan_half_angle_rad(tdef: dict, tower: "TowerFloor", wind_fan_mult: float) -> float:
-    deg = tdef.get("fan_angle_deg", 40) + tdef.get("fan_angle_per_level", 7) * (
-        tower.level - 1
-    )
+    deg = float(tdef.get("fan_angle_deg", 40))
     deg *= 1.0 + wind_fan_mult
     return math.radians(max(12, min(120, deg))) / 2
 
 
 def wind_knockback(tdef: dict, tower: "TowerFloor", wind_knockback_mult: float) -> float:
-    base = tdef.get("knockback", 32)
-    level_scale = 1.0 + 0.14 * (tower.level - 1)
+    base = float(tdef.get("knockback", 32))
+    per_lv = float(tdef.get("knockback_per_level", 0.18))
+    level_scale = 1.0 + per_lv * (tower.level - 1)
     return base * level_scale * (1.0 + wind_knockback_mult)
 
 
-def wind_fire_rate(tdef: dict, tower: "TowerFloor", stats) -> float:
-    rate = tdef["fire_rate"] * (1.0 + stats.tower_fire_rate_mult + stats.wind_rate_mult)
-    rate *= 1.0 + config.TOWER_LEVEL_RATE_PER * (tower.level - 1)
-    return max(0.15, rate)
+def wind_fire_rate(
+    tdef: dict, tower: "TowerFloor | None" = None, stats=None
+) -> float:
+    """风塔固定每秒 1 次，不受全局攻速与 wind_rate 增益影响。"""
+    return float(getattr(config, "WIND_FIRE_RATE", 1.0))
 
 
-def wind_range(tdef: dict, stats) -> float:
-    return tdef["range"] * (1.0 + stats.tower_range_mult + stats.wind_range_mult)
+def wind_range(
+    tdef: dict, stats, tower: "TowerFloor | None" = None
+) -> float:
+    r = tdef["range"] * (1.0 + stats.tower_range_mult + stats.wind_range_mult)
+    if tower is not None:
+        per_lv = float(tdef.get("range_per_level", 0.11))
+        r *= 1.0 + per_lv * (tower.level - 1)
+    return r
 
 
 def enemies_in_fan(

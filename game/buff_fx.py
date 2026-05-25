@@ -258,7 +258,6 @@ def draw_tower_buff_glows(surf: pygame.Surface, game: "GameSession") -> None:
         if tower.type_id == "wind" and (
             s.wind_fan_mult > 0
             or s.wind_knockback_mult > 0
-            or s.wind_rate_mult > 0
             or s.wind_range_mult > 0
         ):
             pygame.draw.ellipse(surf, (120, 220, 180), rect.inflate(6, 4), 2)

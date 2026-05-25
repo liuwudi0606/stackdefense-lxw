@@ -144,6 +144,7 @@ def _normalize_loaded_ui(game: "GameSession") -> None:
     game.debug_menu_open = False
     game.debug_buff_info = None
     game.build_info_tower = None
+    game.base_upgrade_info = None
     game.build_drag = None
 
 
@@ -172,6 +173,7 @@ def serialize_run(game: "GameSession") -> dict:
         "pending_level_ups": game.pending_level_ups,
         "build_types": list(game.build_types),
         "build_info_tower": game.build_info_tower,
+        "base_upgrade_info": game.base_upgrade_info,
         "ui_scroll_y": game.ui_scroll_y,
         "selected_build": game.selected_build,
         "selected_enemy_index": _enemy_index_for_save(game),
@@ -305,6 +307,7 @@ def load_run_into(game: "GameSession", data: dict) -> None:
     raw_sel = data.get("selected_build")
     game.selected_build = raw_sel if raw_sel in game.build_types else None
     game.build_info_tower = data.get("build_info_tower")
+    game.base_upgrade_info = data.get("base_upgrade_info")
     game.ui_scroll_y = data.get("ui_scroll_y", 0)
     game.picked_upgrades = list(data.get("picked_upgrades", []))
     game.max_tower_floors = data.get("max_tower_floors", config.MAX_TOWER_FLOORS_DEFAULT)
@@ -464,6 +467,7 @@ def load_run_into(game: "GameSession", data: dict) -> None:
     game.debug_menu_open = False
     game.debug_buff_info = None
     game.build_info_tower = data.get("build_info_tower")
+    game.base_upgrade_info = data.get("base_upgrade_info")
     _normalize_loaded_ui(game)
 
 

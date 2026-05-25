@@ -112,8 +112,6 @@ def _numeric_summary(game: "GameSession") -> list[str]:
         out.append(f"风塔扇形 +{int(s.wind_fan_mult * 100)}%")
     if s.wind_knockback_mult:
         out.append(f"风塔击退 +{int(s.wind_knockback_mult * 100)}%")
-    if s.wind_rate_mult:
-        out.append(f"风塔攻速 +{int(s.wind_rate_mult * 100)}%")
     if s.wind_range_mult:
         out.append(f"风塔射程 +{int(s.wind_range_mult * 100)}%")
     if s.barracks_spawn_rate_mult:
@@ -149,7 +147,14 @@ def _numeric_summary(game: "GameSession") -> list[str]:
     if s.xp_need_mult:
         out.append(f"升级经验需求 {int(s.xp_need_mult * 100)}%")
     if s.enemy_hp_mult:
-        out.append(f"敌人生命 {int(s.enemy_hp_mult * 100)}%")
+        from game.session import GameSession
+
+        eff = GameSession.enemy_hp_buff_mult(s.enemy_hp_mult)
+        pct = int(round((eff - 1.0) * 100))
+        line = f"敌人生命 {pct:+d}%"
+        if s.enemy_hp_mult < 0 and eff > 1.0 + s.enemy_hp_mult + 1e-6:
+            line += "（削弱上限 50%）"
+        out.append(line)
     if s.max_layers_bonus:
         out.append(f"塔层上限 +{s.max_layers_bonus}")
     return out

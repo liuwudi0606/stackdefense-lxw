@@ -59,7 +59,10 @@ def debug_grant_upgrade(game: "GameSession", card_id: str) -> bool:
             return False
         from game.upgrades import apply_upgrade_card
 
+        old_hp_stat = game.stats.enemy_hp_mult
         apply_upgrade_card(card, game.stats, game)
+        if "enemy_hp_mult" in (card.get("effect") or {}):
+            game.rescale_living_enemies_hp_buff(old_hp_stat)
         game.picked_upgrades.append(card["name"])
         return True
     card = next((c for c in game.upgrades.pool if c["id"] == card_id), None)
@@ -69,7 +72,10 @@ def debug_grant_upgrade(game: "GameSession", card_id: str) -> bool:
     max_s = card.get("max_stacks", 99)
     if game.stats.upgrade_stacks.get(uid, 0) >= max_s:
         return False
+    old_hp_stat = game.stats.enemy_hp_mult
     game.upgrades.apply_choice(card, game.stats, game)
+    if "enemy_hp_mult" in (card.get("effect") or {}):
+        game.rescale_living_enemies_hp_buff(old_hp_stat)
     game.picked_upgrades.append(card["name"])
     return True
 

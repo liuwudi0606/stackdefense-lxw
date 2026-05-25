@@ -20,7 +20,7 @@ def tower_attack_range(game: "GameSession", type_id: str) -> float:
     if attack == "wind":
         from game.wind_combat import wind_range
 
-        return wind_range(tdef, stats)
+        return wind_range(tdef, stats, None)
     if attack == "barracks":
         return 0.0
     if attack == "mint":
