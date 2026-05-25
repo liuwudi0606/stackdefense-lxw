@@ -10,9 +10,6 @@ import os
 import sys
 from enum import Enum, auto
 
-if sys.platform in ("emscripten", "wasi"):
-    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-
 from game.platform_util import ensure_pygame_init, is_web, web_disable_chromakey
 
 if sys.platform not in ("emscripten", "wasi"):
@@ -277,7 +274,8 @@ async def _main_async() -> None:
                     if gpos and game.state == GameState.PLAYING:
                         mx, my = gpos
                         if game.click_on_stack_build_area(mx, my):
-                            game.try_build_stack(game.build_drag)
+                            if not game.try_build_stack(game.build_drag):
+                                game.notify_build_blocked(game.build_drag)
                     game.build_drag = None
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -319,6 +317,7 @@ async def _main_async() -> None:
                 if gpos is None:
                     continue
                 mx, my = gpos
+                audio.ensure_ready()
                 audio.play("click")
 
                 if app_state == AppState.MENU:
@@ -447,8 +446,9 @@ async def _main_async() -> None:
                         continue
                     if act == "select" and tid:
                         if game.tower_count() >= game.max_tower_floors_limit():
-                            game.selected_build = None
-                            game.build_drag = None
+                            game.notify_build_blocked(tid)
+                            game.selected_build = tid
+                            game.build_drag = tid
                             continue
                         clicks = getattr(event, "clicks", 1)
                         if clicks >= 2:
@@ -522,6 +522,8 @@ async def _main_async() -> None:
             ui.draw_hud(surf, game)
             if game.state in (GameState.PLAYING, GameState.UPGRADE_PICK):
                 ui.draw_build_bar(surf, game)
+            if game.state == GameState.PLAYING:
+                ui.draw_toast(surf, game)
             if game.state == GameState.UPGRADE_PICK:
                 ui.draw_upgrade_overlay(surf, game)
             if game.state in (GameState.TOWER_MENU, GameState.TOWER_SWAP):

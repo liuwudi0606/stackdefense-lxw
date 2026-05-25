@@ -26,8 +26,6 @@ async def custom_site():
     import sys
 
     try:
-        import os
-        os.environ["SDL_AUDIODRIVER"] = "dummy"
         platform.document.body.style.background = "#1a1a2e"
         bundle = "{{cookiecutter.archive}}"
         BUILD_STAMP = "__BUILD_STAMP__"

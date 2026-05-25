@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import array
 import math
 import struct
 from pathlib import Path
@@ -12,6 +13,18 @@ ROOT = Path(__file__).resolve().parent.parent
 SOUND_DIR = ROOT / "assets" / "sounds"
 SOUND_EXT = ".ogg" if is_web() else ".wav"
 
+_TONE_SPECS: dict[str, tuple[float, float]] = {
+    "build": (440, 0.08),
+    "shoot": (880, 0.04),
+    "hit": (220, 0.06),
+    "kill": (660, 0.1),
+    "upgrade": (523, 0.15),
+    "hurt": (150, 0.12),
+    "win": (784, 0.25),
+    "lose": (196, 0.3),
+    "click": (600, 0.05),
+}
+
 
 def _write_tone(path: Path, freq: float, duration: float, volume: float = 0.35) -> None:
     import wave
@@ -22,9 +35,7 @@ def _write_tone(path: Path, freq: float, duration: float, volume: float = 0.35) 
     for i in range(n):
         t = i / rate
         env = min(1.0, t * 20) * max(0.0, 1.0 - (t / duration) * 1.2)
-        sample = int(
-            volume * 32767 * env * math.sin(2 * math.pi * freq * t)
-        )
+        sample = int(volume * 32767 * env * math.sin(2 * math.pi * freq * t))
         sample = max(-32767, min(32767, sample))
         frames += struct.pack("<h", sample)
     with wave.open(str(path), "w") as w:
@@ -34,23 +45,24 @@ def _write_tone(path: Path, freq: float, duration: float, volume: float = 0.35) 
         w.writeframes(frames)
 
 
+def _procedural_sound(freq: float, duration: float, volume: float = 0.35) -> pygame.mixer.Sound:
+    rate = 22050
+    n = max(1, int(rate * duration))
+    buf = array.array("h", [0] * n)
+    for i in range(n):
+        t = i / rate
+        env = min(1.0, t * 20) * max(0.0, 1.0 - (t / duration) * 1.2)
+        sample = int(volume * 32767 * env * math.sin(2 * math.pi * freq * t))
+        buf[i] = max(-32767, min(32767, sample))
+    return pygame.mixer.Sound(buffer=bytes(buf))
+
+
 def ensure_sounds() -> None:
     if is_web():
         return
     SOUND_DIR.mkdir(parents=True, exist_ok=True)
-    specs = {
-        "build.wav": (440, 0.08),
-        "shoot.wav": (880, 0.04),
-        "hit.wav": (220, 0.06),
-        "kill.wav": (660, 0.1),
-        "upgrade.wav": (523, 0.15),
-        "hurt.wav": (150, 0.12),
-        "win.wav": (784, 0.25),
-        "lose.wav": (196, 0.3),
-        "click.wav": (600, 0.05),
-    }
-    for name, (freq, dur) in specs.items():
-        p = SOUND_DIR / name
+    for name, (freq, dur) in _TONE_SPECS.items():
+        p = SOUND_DIR / f"{name}.wav"
         if not p.is_file():
             _write_tone(p, freq, dur)
 
@@ -78,6 +90,22 @@ class AudioManager:
         self.sounds: dict[str, pygame.mixer.Sound] = {}
         self._ready = False
 
+    def _load_sound_files(self) -> None:
+        if SOUND_DIR.is_dir():
+            for path in SOUND_DIR.glob(f"*{SOUND_EXT}"):
+                try:
+                    self.sounds[path.stem] = pygame.mixer.Sound(str(path))
+                except Exception:
+                    continue
+
+    def _load_procedural_fallback(self) -> None:
+        for name, spec in _TONE_SPECS.items():
+            if name not in self.sounds:
+                try:
+                    self.sounds[name] = _procedural_sound(*spec)
+                except Exception:
+                    continue
+
     def init(self) -> None:
         try:
             ensure_pygame_init()
@@ -86,15 +114,27 @@ class AudioManager:
                 pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
             if not is_web():
                 ensure_sounds()
-            for path in SOUND_DIR.glob(f"*{SOUND_EXT}"):
-                self.sounds[path.stem] = pygame.mixer.Sound(str(path))
-            self._ready = True
+            self._load_sound_files()
+            self._load_procedural_fallback()
+            self._ready = bool(self.sounds)
         except Exception:
             self._ready = False
 
+    def ensure_ready(self) -> None:
+        """网页需在用户点击后再次尝试初始化 mixer。"""
+        if self._ready:
+            return
+        self.init()
+
     def play(self, name: str) -> None:
-        if not self.enabled or not self._ready:
+        if not self.enabled:
+            return
+        self.ensure_ready()
+        if not self._ready:
             return
         s = self.sounds.get(name)
         if s:
-            s.play()
+            try:
+                s.play()
+            except Exception:
+                pass

@@ -162,6 +162,8 @@ class GameSession:
         self.build_drag: str | None = None
         self.ui_scroll_y = 0
         self.scroll_drag: ScrollDragState | None = None
+        self.toast_message = ""
+        self.toast_timer = 0.0
 
     def set_endless_mode(self, enabled: bool) -> None:
         self.endless_mode = enabled
@@ -268,10 +270,29 @@ class GameSession:
         if not _is_playable_tower(self.tower_defs, build_type):
             return "选择塔种"
         if self.tower_count() >= self.max_tower_floors_limit():
-            return "塔层已满"
+            return "塔层已满，无法继续叠层"
         if self.gold < self.build_cost(build_type):
             return "金币不足"
         return f"叠第{self.tower_count() + 1}层·{self.tower_defs[build_type]['name']}"
+
+    def show_toast(self, message: str, duration: float = 2.2) -> None:
+        if message:
+            self.toast_message = message
+            self.toast_timer = max(self.toast_timer, duration)
+
+    def notify_build_blocked(self, build_type: str | None = None) -> None:
+        tid = build_type or self.build_drag or self.selected_build
+        if tid:
+            self.show_toast(self.build_hint(tid))
+        else:
+            self.show_toast("塔层已满，无法继续叠层")
+        self.on_sound("click")
+
+    def tick_toast(self, dt: float) -> None:
+        if self.toast_timer > 0:
+            self.toast_timer = max(0.0, self.toast_timer - dt)
+            if self.toast_timer <= 0:
+                self.toast_message = ""
 
     def _sync_stack_layout(self) -> None:
         refresh_stack_layout(len(self.towers), build_bar_h=config.BUILD_BAR_HEIGHT)
@@ -468,7 +489,14 @@ class GameSession:
         return 1.0 + 0.1 * (tower.level - 1)
 
     def try_build_stack(self, build_type: str | None) -> bool:
-        if not build_type or not self.can_build_stack(build_type):
+        if not build_type:
+            return False
+        if not self.can_build_stack(build_type):
+            if self.tower_count() >= self.max_tower_floors_limit():
+                self.notify_build_blocked(build_type)
+            elif self.gold < self.build_cost(build_type):
+                self.show_toast(self.build_hint(build_type))
+                self.on_sound("click")
             return False
         self.gold -= self.build_cost(build_type)
         self._add_tower(build_type)
@@ -529,8 +557,9 @@ class GameSession:
         on_enemy_killed_visual(self, enemy)
 
     def _sync_build_selection(self) -> None:
-        if self.tower_count() >= self.max_tower_floors_limit():
+        if self.selected_build and self.selected_build not in self.build_types:
             self.selected_build = None
+        if self.build_drag and self.build_drag not in self.build_types:
             self.build_drag = None
 
     def _tick_waves(self, dt: float, *, advance_time: bool = True) -> None:
@@ -538,6 +567,7 @@ class GameSession:
             self.spawn_enemy(sp["type"], sp["x"], sp["y"])
 
     def update_playing(self, dt: float) -> None:
+        self.tick_toast(dt)
         self._sync_stack_layout()
         self._sync_build_selection()
         self.fx_phase += dt

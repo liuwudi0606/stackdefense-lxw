@@ -634,6 +634,23 @@ class UI:
         hint_txt = "B/空白关闭"
         blit_in_rect(surf, self.f_sm, hint_txt, foot_r, (150, 160, 175), align="center", pad=2)
 
+    def draw_toast(self, surf: pygame.Surface, game: GameSession) -> None:
+        if not game.toast_message or game.toast_timer <= 0:
+            return
+        alpha = min(255, int(255 * min(1.0, game.toast_timer / 0.35)))
+        pad_x, pad_y = 12, 0
+        if config.PORTRAIT:
+            pad_y = self.build_bar_y(game) - 36
+        else:
+            pad_y = self.build_bar_y(game) - 32
+        text = self.f_md.render(game.toast_message, True, (255, 230, 200))
+        bg = pygame.Surface((text.get_width() + pad_x * 2, text.get_height() + 12), pygame.SRCALPHA)
+        bg.fill((30, 24, 18, min(220, alpha)))
+        pygame.draw.rect(bg, (255, 140, 90, alpha), bg.get_rect(), 2, border_radius=6)
+        rx = (config.WIDTH - bg.get_width()) // 2
+        surf.blit(bg, (rx, max(8, pad_y - bg.get_height() // 2)))
+        surf.blit(text, (rx + pad_x, max(14, pad_y - text.get_height() // 2)))
+
     def draw_hud(self, surf: pygame.Surface, game: GameSession) -> None:
         bar_w = min(200, config.WIDTH - 118) if config.PORTRAIT else 200
         pygame.draw.rect(surf, (40, 40, 50), pygame.Rect(12, 12, bar_w, 14))
