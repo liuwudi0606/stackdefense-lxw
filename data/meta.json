@@ -1,0 +1,53 @@
+{
+  "win_tokens_base": 32,
+  "win_tokens_per_level": 5,
+  "unlocks": [
+    {"id": "start_gold", "name": "工程预拨款", "desc": "开局金币 +40", "cost": 25, "effect": {"start_gold_bonus": 40}},
+    {"id": "build_discount_1", "name": "工程议价 I", "desc": "建塔费用 -8%", "cost": 35, "effect": {"build_cost_mult": -0.08}},
+    {"id": "layers_8", "name": "结构加高 I", "desc": "塔层上限 +2", "cost": 40, "effect": {"max_layers_bonus": 2}},
+    {"id": "exp_1", "name": "战术教程 I", "desc": "获得经验 +10%", "cost": 38, "effect": {"exp_mult": 0.1}},
+    {"id": "gold_1", "name": "战利品 I", "desc": "击杀金币 +12%", "cost": 38, "effect": {"gold_mult": 0.12}},
+
+    {"id": "base_hp_1", "name": "地基加固 I", "desc": "地基生命 +12%", "cost": 42, "requires": "layers_8", "effect": {"base_hp_mult": 0.12}},
+    {"id": "layers_10", "name": "结构加高 II", "desc": "塔层上限再 +2", "cost": 55, "requires": "layers_8", "effect": {"max_layers_bonus": 2}},
+    {"id": "build_discount_2", "name": "工程议价 II", "desc": "建塔费用再 -8%", "cost": 50, "requires": "build_discount_1", "effect": {"build_cost_mult": -0.08}},
+    {"id": "cannon_start", "name": "重炮许可", "desc": "开局可建造重炮", "cost": 58, "effect": {"unlock_cannon_start": true}},
+    {"id": "arrow_1", "name": "箭塔调校", "desc": "箭塔伤害 +18%", "cost": 45, "effect": {"type_damage": {"arrow": 0.18}}},
+
+    {"id": "base_regen", "name": "纳米修复站", "desc": "地基每秒回复 1.5 生命", "cost": 52, "requires": "base_hp_1", "effect": {"base_regen": 1.5}},
+    {"id": "tower_dmg_1", "name": "火力校准 I", "desc": "全塔伤害 +10%", "cost": 55, "requires": "exp_1", "effect": {"tower_damage_mult": 0.1}},
+    {"id": "tower_rate_1", "name": "速射模块 I", "desc": "全塔攻速 +8%", "cost": 52, "requires": "tower_dmg_1", "effect": {"tower_fire_rate_mult": 0.08}},
+    {"id": "enemy_weak_1", "name": "虚弱射线 I", "desc": "敌人生命 -6%", "cost": 48, "effect": {"enemy_hp_mult": -0.06}},
+    {"id": "laser_start", "name": "激光许可", "desc": "开局可建造激光塔", "cost": 68, "requires": "cannon_start", "effect": {"unlock_laser_start": true}},
+
+    {"id": "layers_12", "name": "结构加高 III", "desc": "塔层上限再 +2", "cost": 72, "requires": "layers_10", "effect": {"max_layers_bonus": 2}},
+    {"id": "start_gold_2", "name": "应急金库", "desc": "开局金币再 +50", "cost": 60, "requires": "start_gold", "effect": {"start_gold_bonus": 50}},
+    {"id": "base_hp_2", "name": "地基加固 II", "desc": "地基生命再 +15%", "cost": 65, "requires": "base_hp_1", "effect": {"base_hp_mult": 0.15}},
+    {"id": "splash_1", "name": "高爆储备", "desc": "重炮爆炸范围 +15%", "cost": 55, "requires": "cannon_start", "effect": {"splash_mult": 0.15}},
+    {"id": "slow_1", "name": "极寒协议", "desc": "寒塔减速 +12%", "cost": 48, "effect": {"slow_mult": 0.12}},
+
+    {"id": "wind_start", "name": "风塔许可", "desc": "开局可建造风塔", "cost": 62, "requires": "laser_start", "effect": {"unlock_wind_start": true}},
+    {"id": "barracks_start", "name": "兵营许可", "desc": "开局可建造兵营", "cost": 70, "requires": "wind_start", "effect": {"unlock_barracks_start": true}},
+    {"id": "xp_1", "name": "快速学习", "desc": "升级所需经验 -10%", "cost": 58, "requires": "exp_1", "effect": {"xp_need_mult": -0.1}},
+    {"id": "tower_range_1", "name": "望远镜片", "desc": "全塔射程 +12%", "cost": 54, "requires": "tower_rate_1", "effect": {"tower_range_mult": 0.12}},
+    {"id": "kill_heal_1", "name": "汲取协议", "desc": "每击杀回复基地 1 生命", "cost": 56, "requires": "base_regen", "effect": {"kill_heal": 1}},
+
+    {"id": "base_shield_1", "name": "能量护盾", "desc": "开局地基护盾 +35", "cost": 62, "requires": "base_hp_2", "effect": {"base_shield": 35}},
+    {"id": "aura_slow", "name": "基地寒场", "desc": "靠近基地的敌人减速 10%", "cost": 58, "requires": "slow_1", "effect": {"base_aura_slow": 0.1}},
+    {"id": "laser_1", "name": "聚焦透镜", "desc": "激光蓄能 +20%", "cost": 60, "requires": "laser_start", "effect": {"laser_ramp_mult": 0.2}},
+    {"id": "double_1", "name": "双重装填", "desc": "箭塔双发概率 +8%", "cost": 65, "requires": "arrow_1", "effect": {"double_shot_chance": 0.08}},
+    {"id": "gold_2", "name": "战利品 II", "desc": "击杀金币再 +15%", "cost": 68, "requires": "gold_1", "effect": {"gold_mult": 0.15}},
+
+    {"id": "enemy_weak_2", "name": "虚弱射线 II", "desc": "敌人生命再 -8%", "cost": 75, "requires": "enemy_weak_1", "effect": {"enemy_hp_mult": -0.08}},
+    {"id": "tower_dmg_2", "name": "火力校准 II", "desc": "全塔伤害再 +12%", "cost": 82, "requires": "tower_dmg_1", "effect": {"tower_damage_mult": 0.12}},
+    {"id": "barracks_1", "name": "扩编令", "desc": "兵营每次多生成 1 名护卫", "cost": 72, "requires": "barracks_start", "effect": {"barracks_spawn_count_bonus": 1}},
+    {"id": "wind_1", "name": "疾风扩散", "desc": "风塔扇形角度 +18%", "cost": 58, "requires": "wind_start", "effect": {"wind_fan_mult": 0.18}},
+    {"id": "token_bonus", "name": "功勋档案", "desc": "通关代币奖励 +12", "cost": 80, "requires": "xp_1", "effect": {"win_tokens_bonus": 12}},
+
+    {"id": "layers_14", "name": "结构加高 IV", "desc": "塔层上限再 +2", "cost": 95, "requires": "layers_12", "effect": {"max_layers_bonus": 2}},
+    {"id": "base_thorns", "name": "反伤尖刺", "desc": "攻击基地的敌人受到 6 点反伤", "cost": 70, "requires": "base_shield_1", "effect": {"base_thorns": 6}},
+    {"id": "shield_regen", "name": "护盾充能", "desc": "地基护盾每秒回复 2", "cost": 78, "requires": "base_shield_1", "effect": {"base_shield_regen": 2}},
+    {"id": "cannon_1", "name": "重炮专精", "desc": "重炮伤害 +22%", "cost": 75, "requires": "splash_1", "effect": {"type_damage": {"cannon": 0.22}}},
+    {"id": "exp_2", "name": "战术教程 II", "desc": "获得经验再 +12%", "cost": 88, "requires": "exp_1", "effect": {"exp_mult": 0.12}}
+  ]
+}

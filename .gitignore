@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+build/
+build/web-cache/
+.pygbag/
+run_save.json
+display.json
+*.zip

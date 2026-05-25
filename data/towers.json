@@ -1,0 +1,81 @@
+{
+  "arrow": {
+    "name": "箭塔",
+    "cost": 26,
+    "damage": 11,
+    "range": 420,
+    "fire_rate": 1.15,
+    "color": [90, 160, 220],
+    "bullet_color": [255, 230, 90],
+    "desc": "金色箭矢，单体速射"
+  },
+  "slow": {
+    "name": "寒塔",
+    "cost": 34,
+    "damage": 7,
+    "range": 380,
+    "fire_rate": 0.85,
+    "slow_factor": 0.48,
+    "slow_duration": 2.2,
+    "color": [120, 200, 255],
+    "bullet_color": [160, 230, 255],
+    "desc": "冰晶弹，减速敌人"
+  },
+  "cannon": {
+    "name": "重炮",
+    "cost": 48,
+    "damage": 32,
+    "range": 400,
+    "fire_rate": 0.48,
+    "splash_radius": 45,
+    "color": [200, 120, 80],
+    "bullet_color": [255, 140, 60],
+    "desc": "橙色炮弹，范围爆炸（溅射目标伤害衰减）"
+  },
+  "laser": {
+    "name": "激光塔",
+    "attack": "laser",
+    "cost": 58,
+    "base_dps": 11,
+    "ramp_per_sec": 0.36,
+    "max_ramp_mult": 11,
+    "phase2_sec": 1.0,
+    "phase3_sec": 2.8,
+    "lock_break_grace": 0.25,
+    "range": 460,
+    "color": [170, 90, 220],
+    "beam_color": [220, 120, 255],
+    "beam_core": [255, 240, 255],
+    "desc": "持续激光灼烧单体；换目标保留部分蓄力，满蓄秒伤低于旧版"
+  },
+  "wind": {
+    "name": "风塔",
+    "attack": "wind",
+    "cost": 40,
+    "range": 400,
+    "fire_rate": 0.55,
+    "fan_angle_deg": 44,
+    "fan_angle_per_level": 9,
+    "knockback": 38,
+    "color": [90, 200, 170],
+    "desc": "扇形气流击退敌人，无伤害；等级提升扩大扇面、缩短间隔"
+  },
+  "barracks": {
+    "name": "兵营",
+    "attack": "barracks",
+    "cost": 44,
+    "spawn_interval": 6.8,
+    "spawn_count": 2,
+    "max_guards": 7,
+    "guard_hp": 62,
+    "guard_damage": 9,
+    "guard_attack_rate": 1.15,
+    "guard_range": 54,
+    "guard_speed": 54,
+    "guard_seek_range": 340,
+    "guard_radius": 11,
+    "color": [110, 150, 200],
+    "desc": "每座兵营独立护卫上限；周期在基地外环生成护卫"
+  }
+}
+
