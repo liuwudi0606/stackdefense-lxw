@@ -197,7 +197,7 @@ LEGACY_CUSTOM_SITE: list[tuple[str, str]] = [
         '        platform.window.canvas.style.visibility = "visible"\n'
         "        platform.window.config.gui_divider = 1\n"
         "        platform.window.config.gui_debug = 1\n\n"
-        "        platform.run_main(PyConfig, loaderhome=assets, loadermain=None)\n\n"
+        '        platform.run_main(PyConfig, loaderhome=assets, loadermain="main.py")\n\n'
         "        wait = 0\n"
         "        while embed.counter() < 0:\n"
         "            await asyncio.sleep(0.1)\n"
@@ -208,11 +208,6 @@ LEGACY_CUSTOM_SITE: list[tuple[str, str]] = [
         '            platform.window.infobox.innerText = "点击页面开始游戏"\n'
         "            while not platform.window.MM.UME:\n"
         "                await asyncio.sleep(0.1)\n\n"
-        "        await TopLevel_async_handler.start_toplevel(platform.shell, console=False)\n"
-        "        __import__(__name__).__file__ = main\n\n"
-        "        def ui_callback(pkg):\n"
-        '            platform.window.infobox.innerText = f"安装 {pkg}…"\n\n'
-        "        await shell.source(main, callback=ui_callback)\n\n"
         "        platform.window.transfer.hidden = True\n"
         '        platform.window.infobox.style.display = "none"\n'
         "        platform.window.window_resize()\n"
@@ -388,6 +383,29 @@ def _rename_archives() -> int:
     return n
 
 
+def _fix_web_startup(text: str) -> tuple[str, int]:
+    """避免 shell.source + asyncio.run 卡死，统一走 run_main(loadermain='main.py')。"""
+    n = 0
+    if 'loadermain=None' in text:
+        text = text.replace(
+            "platform.run_main(PyConfig, loaderhome=assets, loadermain=None)",
+            'platform.run_main(PyConfig, loaderhome=assets, loadermain="main.py")',
+            1,
+        )
+        n += 1
+    block = (
+        "        await TopLevel_async_handler.start_toplevel(platform.shell, console=False)\n"
+        "        __import__(__name__).__file__ = main\n\n"
+        "        def ui_callback(pkg):\n"
+        '            platform.window.infobox.innerText = f"安装 {pkg}…"\n\n'
+        "        await shell.source(main, callback=ui_callback)\n\n"
+    )
+    if block in text:
+        text = text.replace(block, "", 1)
+        n += 1
+    return text, n
+
+
 def main() -> int:
     if not INDEX.is_file():
         print(f"skip: {INDEX} not found (run pygbag first)")
@@ -403,6 +421,9 @@ def main() -> int:
         changed += 1
 
     text, n = _sync_archive_references(text, bundle)
+    changed += n
+
+    text, n = _fix_web_startup(text)
     changed += n
 
     if CDN_REMOTE in text:
