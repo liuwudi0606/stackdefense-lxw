@@ -26,6 +26,7 @@ INDEX_JSON = f"{PYGAME_CDN}/index-0.9.3-cp312.json"
 
 RUNTIME_FILES = [
     "pythons.js",
+    "cpythonrc.py",
     "cpython312/main.js",
     "cpython312/main.wasm",
     "cpython312/main.data",
