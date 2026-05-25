@@ -684,6 +684,9 @@ class UI:
         fd_label = self.f_sm.render("地基", True, (255, 240, 200))
         surf.blit(fd_label, fd_label.get_rect(center=(int(lx), int(ly))))
 
+        from game.mint_fx import draw_mint_tower_idle
+
+        draw_mint_tower_idle(surf, game)
         draw_tower_buff_glows(surf, game)
         draw_base_pulse_burst(surf, game)
         draw_laser_beams(surf, game)

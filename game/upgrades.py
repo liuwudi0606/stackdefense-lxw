@@ -5,7 +5,7 @@ import config
 from game.stats import RunStats
 from game.tower_labels import TOWER_TYPE_LABELS, tower_damage_label, tower_label
 
-_BLUEPRINT_TOWERS = frozenset({"cannon", "laser", "wind", "barracks"})
+_BLUEPRINT_TOWERS = frozenset({"cannon", "laser", "wind", "barracks", "mint"})
 
 
 def required_tower_type(card: dict) -> str | None:
@@ -23,6 +23,8 @@ def required_tower_type(card: dict) -> str | None:
         return "wind"
     if eid.startswith("barracks_"):
         return "barracks"
+    if eid.startswith("mint_"):
+        return "mint"
     if eid in ("arrow_boost", "double_shot"):
         return "arrow"
     if eid.startswith("slow") or "slow_mult" in effect:
@@ -176,6 +178,10 @@ _EFFECT_LABELS: dict[str, str] = {
     "barracks_guard_rate_mult": "护卫攻速",
     "barracks_max_guards_bonus": "护卫总上限",
     "barracks_spawn_count_bonus": "每次多召护卫",
+    "mint_yield_mult": "钱塔产金",
+    "mint_rate_mult": "钱塔结算加速",
+    "mint_range_mult": "钱塔射程",
+    "mint_cap_mult": "钱塔单次上限",
     "exp_mult": "获得经验",
     "gold_mult": "获得金币",
     "build_cost_mult": "建塔费用",
@@ -204,6 +210,10 @@ _PERCENT_KEYS = {
     "barracks_guard_hp_mult",
     "barracks_guard_damage_mult",
     "barracks_guard_rate_mult",
+    "mint_yield_mult",
+    "mint_rate_mult",
+    "mint_range_mult",
+    "mint_cap_mult",
     "exp_mult",
     "gold_mult",
     "build_cost_mult",

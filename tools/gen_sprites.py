@@ -202,6 +202,18 @@ def draw_tower_wind() -> None:
     save("tower_wind.png", _tower_block((55, 145, 115), (170, 255, 210), deco))
 
 
+def draw_tower_mint() -> None:
+    def deco(d, acc):
+        # 钱袋 + 金币
+        d.ellipse([20, 10, 34, 22], fill=(120, 95, 35, 255), outline=(80, 60, 25, 255))
+        d.rectangle([22, 14, 32, 18], fill=(200, 160, 60, 255))
+        d.ellipse([24, 4, 30, 10], fill=(*acc[:3], 255))
+        for ox, oy in ((26, 6), (28, 5)):
+            d.ellipse([ox, oy, ox + 3, oy + 3], fill=(255, 230, 120, 255))
+
+    save("tower_mint.png", _tower_block((195, 155, 45), (255, 230, 110), deco))
+
+
 def draw_tower_barracks() -> None:
     def deco(d, acc):
         # 营帐 + 旗
@@ -359,6 +371,7 @@ def main() -> None:
     draw_tower_laser()
     draw_tower_wind()
     draw_tower_barracks()
+    draw_tower_mint()
     draw_guard_sprite()
     draw_bullet_arrow()
     draw_bullet_snow()

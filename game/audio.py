@@ -23,6 +23,7 @@ _TONE_SPECS: dict[str, tuple[float, float]] = {
     "win": (784, 0.25),
     "lose": (196, 0.3),
     "click": (600, 0.05),
+    "coin": (1320, 0.09),
 }
 
 

@@ -10,6 +10,7 @@ _META_FLAGS = (
     "unlock_laser_start",
     "unlock_wind_start",
     "unlock_barracks_start",
+    "unlock_mint_start",
 )
 
 
@@ -76,6 +77,7 @@ class MetaProgress:
             "unlock_laser_start": False,
             "unlock_wind_start": False,
             "unlock_barracks_start": False,
+            "unlock_mint_start": False,
             "stat_effect": {},
         }
         stat: dict = eff["stat_effect"]

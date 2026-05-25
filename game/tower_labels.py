@@ -10,6 +10,7 @@ TOWER_TYPE_LABELS: dict[str, str] = {
     "laser": "激光塔",
     "wind": "风塔",
     "barracks": "兵营",
+    "mint": "钱塔",
 }
 
 

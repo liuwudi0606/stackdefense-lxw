@@ -23,6 +23,10 @@ def tower_attack_range(game: "GameSession", type_id: str) -> float:
         return wind_range(tdef, stats)
     if attack == "barracks":
         return 0.0
+    if attack == "mint":
+        from game.mint_combat import mint_range
+
+        return mint_range(tdef, stats)
     if "range" in tdef:
         return float(tdef["range"]) * (1.0 + stats.tower_range_mult)
     return 0.0

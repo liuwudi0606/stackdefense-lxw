@@ -240,6 +240,16 @@ def draw_tower_buff_glows(surf: pygame.Surface, game: "GameSession") -> None:
             or s.wind_range_mult > 0
         ):
             pygame.draw.ellipse(surf, (120, 220, 180), rect.inflate(6, 4), 2)
+        if tower.type_id == "mint" and (
+            s.mint_yield_mult > 0
+            or s.mint_rate_mult > 0
+            or s.mint_range_mult > 0
+            or s.mint_cap_mult > 0
+        ):
+            pulse = int(40 + 30 * math.sin(game.fx_phase * 3.5 + tower.floor))
+            pygame.draw.ellipse(surf, (255, 210, 80), rect.inflate(6, 5), 2)
+            coin = pygame.Rect(sx - 4, sy - int(22 * z), 8, 8)
+            pygame.draw.ellipse(surf, (255, 230, 120, pulse), coin)
         if tower.type_id == "laser" and (
             s.laser_ramp_mult > 0 or s.laser_cap_mult > 0 or s.type_damage.get("laser", 0) > 0
         ):
@@ -401,6 +411,10 @@ def draw_world_fx(surf: pygame.Surface, game: "GameSession") -> None:
                 px = bx + int(math.cos(aim) * rng * t * fade)
                 py = by + int(math.sin(aim) * rng * t * ISO_Y_SCALE * fade)
                 pygame.draw.circle(surf, (200, 255, 230), (px, py), max(1, 3 - i // 2))
+        elif fx.kind == "mint_pulse":
+            from game.mint_fx import draw_mint_pulse_fx
+
+            draw_mint_pulse_fx(surf, game, fx)
         elif fx.kind == "laser_hit":
             phase = fx.extra.get("phase", 1)
             col = (255, 180, 255) if phase >= 3 else (180, 220, 255)

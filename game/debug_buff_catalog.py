@@ -13,6 +13,7 @@ CATEGORY_ORDER = [
     "激光塔",
     "风塔",
     "兵营",
+    "钱塔",
     "全局",
     "诅咒",
     "其它",
@@ -56,6 +57,8 @@ def buff_category(card: dict) -> str:
         return "风塔"
     if eid.startswith("barracks_"):
         return "兵营"
+    if eid.startswith("mint_"):
+        return "钱塔"
     if eid in ("arrow_boost", "double_shot"):
         return "箭塔"
     if eid.startswith("slow") or "slow_mult" in effect:

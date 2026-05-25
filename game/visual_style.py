@@ -16,4 +16,5 @@ TOWER_PLATFORM_TINT = {
     "laser": (180, 100, 240),
     "wind": (80, 190, 150),
     "barracks": (100, 140, 200),
+    "mint": (220, 185, 70),
 }

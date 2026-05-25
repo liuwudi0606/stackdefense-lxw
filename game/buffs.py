@@ -124,6 +124,14 @@ def _numeric_summary(game: "GameSession") -> list[str]:
         out.append(f"护卫总上限 +{s.barracks_max_guards_bonus}")
     if s.barracks_spawn_count_bonus:
         out.append(f"每次多召 +{s.barracks_spawn_count_bonus} 护卫")
+    if s.mint_yield_mult:
+        out.append(f"钱塔产金 +{int(s.mint_yield_mult * 100)}%")
+    if s.mint_rate_mult:
+        out.append(f"钱塔结算加速 +{int(s.mint_rate_mult * 100)}%")
+    if s.mint_range_mult:
+        out.append(f"钱塔射程 +{int(s.mint_range_mult * 100)}%")
+    if s.mint_cap_mult:
+        out.append(f"钱塔单次上限 +{int(s.mint_cap_mult * 100)}%")
     if s.exp_mult:
         out.append(f"经验 +{int(s.exp_mult * 100)}%")
     if s.gold_mult:

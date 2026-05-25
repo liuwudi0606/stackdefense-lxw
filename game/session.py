@@ -19,6 +19,8 @@ from game.wind_combat import (
     wind_range,
 )
 from game.wind_fx import on_wind_gust_visual
+from game.mint_combat import apply_mint_tick, count_enemies_in_mint_range, mint_interval, mint_range
+from game.mint_fx import on_mint_tick_visual
 from game.effects import ExplosionFx
 from game.barracks_combat import barracks_spawn_interval, spawn_guards_from_barracks
 from game.camera import camera_apply, focus_on_stack, reset_view, view_zoom
@@ -70,7 +72,7 @@ def _is_playable_tower(tower_defs: dict, type_id: str) -> bool:
     if t.get("is_foundation"):
         return False
     attack = t.get("attack")
-    return attack in ("laser", "wind", "barracks") or "damage" in t
+    return attack in ("laser", "wind", "barracks", "mint") or "damage" in t
 
 
 def _tower_is_laser(tower_defs: dict, type_id: str) -> bool:
@@ -83,6 +85,10 @@ def _tower_is_wind(tower_defs: dict, type_id: str) -> bool:
 
 def _tower_is_barracks(tower_defs: dict, type_id: str) -> bool:
     return tower_defs.get(type_id, {}).get("attack") == "barracks"
+
+
+def _tower_is_mint(tower_defs: dict, type_id: str) -> bool:
+    return tower_defs.get(type_id, {}).get("attack") == "mint"
 
 
 class GameSession:
@@ -126,6 +132,7 @@ class GameSession:
             ("laser", "unlock_laser_start"),
             ("wind", "unlock_wind_start"),
             ("barracks", "unlock_barracks_start"),
+            ("mint", "unlock_mint_start"),
         ):
             if me.get(flag) and tid not in self.build_types:
                 self.build_types.append(tid)
@@ -743,6 +750,18 @@ class GameSession:
             self.on_sound("shoot")
             self._shoot_sfx_cd = 0.08
 
+    def _update_mint_tower(self, tower: TowerFloor, dt: float) -> None:
+        tdef = self.tower_defs[tower.type_id]
+        rng = mint_range(tdef, self.stats)
+        count = count_enemies_in_mint_range(self, rng)
+        gold = apply_mint_tick(self, tower, tdef, count)
+        tower.cooldown = mint_interval(tdef, tower, self.stats)
+        wx, wy = tower.world_pos()
+        on_mint_tick_visual(self, wx, wy, rng, count, gold)
+        if gold > 0 and self._shoot_sfx_cd <= 0:
+            self.on_sound("coin")
+            self._shoot_sfx_cd = 0.12
+
     def _update_towers(self, dt: float) -> None:
         """仅塔层射击；中心地基不发射子弹。"""
         self._shoot_sfx_cd = max(0.0, self._shoot_sfx_cd - dt)
@@ -766,6 +785,12 @@ class GameSession:
                 if n > 0 and self._shoot_sfx_cd <= 0:
                     self.on_sound("build")
                     self._shoot_sfx_cd = 0.15
+                continue
+            if _tower_is_mint(self.tower_defs, tower.type_id):
+                tower.cooldown -= dt
+                if tower.cooldown > 0:
+                    continue
+                self._update_mint_tower(tower, dt)
                 continue
             tower.cooldown -= dt
             if tower.cooldown > 0:

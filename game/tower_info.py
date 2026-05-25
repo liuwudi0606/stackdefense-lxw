@@ -32,6 +32,12 @@ from game.wind_combat import (
     wind_knockback,
     wind_range,
 )
+from game.mint_combat import (
+    calc_mint_gold,
+    count_enemies_in_mint_range,
+    mint_interval,
+    mint_range,
+)
 
 
 
@@ -126,6 +132,37 @@ def _barracks_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | N
     return lines
 
 
+def _mint_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None" = None) -> list[str]:
+    class _Lvl:
+        level = 1
+
+    tw = tower if tower else _Lvl()
+    rng = mint_range(tdef, game.stats)
+    interval = mint_interval(tdef, tw, game.stats)
+    cap = float(tdef.get("mint_cap", 48)) * (1.0 + game.stats.mint_cap_mult)
+    per = float(tdef.get("mint_per_enemy", 4)) * (1.0 + game.stats.mint_yield_mult)
+    base = float(tdef.get("mint_base", 1))
+    if tower:
+        n = count_enemies_in_mint_range(game, rng)
+        est = calc_mint_gold(game, tdef, tower, n)
+        lines = [
+            "伤害 无（产金）",
+            f"结算间隔 {interval:.1f}秒",
+            f"射程 {int(rng)}（以地基为中心）",
+            f"当前射程内 {n} 敌 · 下次约 +{est} 金",
+            f"每名敌人 +{per:.1f} 金 · 基础上限 {cap:.0f}",
+        ]
+    else:
+        lines = [
+            "伤害 无（产金）",
+            f"结算间隔 {interval:.1f}秒",
+            f"射程 {int(rng)}",
+            f"基础 {base:.0f} + 每名敌人 {per:.1f} 金",
+            f"单次上限 {cap:.0f}（无敌人时收益很低）",
+        ]
+    return lines
+
+
 def _wind_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None" = None) -> list[str]:
     class _Lvl:
         level = 1
@@ -169,6 +206,10 @@ def tower_stat_lines(game: "GameSession", tower: "TowerFloor", tower_index: int 
     elif tower.type_id == "barracks":
 
         lines = _barracks_stat_lines(game, tdef, tower)
+
+    elif tower.type_id == "mint":
+
+        lines = _mint_stat_lines(game, tdef, tower)
 
     else:
 
@@ -270,6 +311,12 @@ def tower_preview_lines(game: "GameSession", type_id: str) -> list[str]:
     elif type_id == "barracks":
 
         lines = _barracks_stat_lines(game, tdef, None)
+
+        lines.append(f"建造 {game.build_cost(type_id)} 金")
+
+    elif type_id == "mint":
+
+        lines = _mint_stat_lines(game, tdef, None)
 
         lines.append(f"建造 {game.build_cost(type_id)} 金")
 
