@@ -261,15 +261,31 @@ def _build_stamp() -> str:
 
 
 def _sync_archive_references(text: str, bundle: str) -> tuple[str, int]:
+    """只改明确的 bundle / archive 字段，避免把 stackdefense 嵌进 stackdefense-lxw。"""
     n = 0
+    suffix = bundle.rsplit("-", 1)[-1]
+    doubled = f"{bundle}-{suffix}"
+    if doubled in text:
+        text = text.replace(doubled, bundle)
+        n += 1
     text, c = re.subn(r'bundle = "[^"]+"', f'bundle = "{bundle}"', text, count=1)
     n += c
-    for stem in {ARCHIVE_OLD, "stackdefense", "stackdefense-lxw"}:
-        if stem == bundle:
-            continue
-        if stem in text:
-            text = text.replace(stem, bundle)
-            n += 1
+    text, c = re.subn(r'archive\s*:\s*"[^"]+"', f'archive : "{bundle}"', text, count=1)
+    n += c
+    text, c = re.subn(
+        r'Loading [^\n]+ from [^\n]+\.apk',
+        f'Loading {bundle} from {bundle}.apk',
+        text,
+        count=1,
+    )
+    n += c
+    text, c = re.subn(r'Folder\s+:\s*[^\n]+', f'Folder  : {bundle}', text, count=1)
+    n += c
+    text, c = re.subn(r'Title\s+:\s*[^\n]+', f'Title   : {bundle}', text, count=1)
+    n += c
+    if ARCHIVE_OLD in text:
+        text = text.replace(ARCHIVE_OLD, bundle)
+        n += 1
     return text, n
 
 
