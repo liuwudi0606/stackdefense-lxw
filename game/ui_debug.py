@@ -47,8 +47,6 @@ _DEBUG_SCROLL_GAP = 2
 
 class DebugUI:
 
-    _PANEL = (config.WIDTH // 2 - 340, 36, 680, config.HEIGHT - 72)
-
     QUICK = [
 
         ("gold500", "+500 金"),
@@ -89,7 +87,9 @@ class DebugUI:
 
     @property
     def PANEL(self) -> pygame.Rect:
-        return pygame.Rect(self._PANEL)
+        if config.PORTRAIT:
+            return pygame.Rect(8, 36, config.WIDTH - 16, config.HEIGHT - 72)
+        return pygame.Rect(config.WIDTH // 2 - 340, 36, 680, config.HEIGHT - 72)
 
     def panel(self) -> pygame.Rect:
 

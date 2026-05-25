@@ -6,6 +6,7 @@ DATA = ROOT / "data"
 ASSETS = ROOT / "assets"
 
 # 逻辑分辨率（玩法与 UI 布局）；实际窗口可缩放/全屏
+PORTRAIT = False
 WIDTH = 960
 HEIGHT = 640
 FPS = 60
@@ -25,6 +26,45 @@ BUILD_CLICK_RADIUS = 90
 
 # 敌人生成：绕中心一圈（四面八方）
 SPAWN_RADIUS = 400
+
+
+def _recompute_layout_constants() -> None:
+    global BASE_X, BASE_Y, BASE_RADIUS, BUILD_CLICK_RADIUS, SPAWN_RADIUS
+    BASE_X = WIDTH // 2
+    BASE_Y = HEIGHT // 2 + (24 if PORTRAIT else 20)
+    BASE_RADIUS = 40 if PORTRAIT else 42
+    BUILD_CLICK_RADIUS = 82 if PORTRAIT else 90
+    SPAWN_RADIUS = min(340, int(min(WIDTH, HEIGHT) * 0.42))
+
+
+def apply_layout(portrait: bool) -> None:
+    """切换横屏 960×640 / 竖屏 540×960（手机）。"""
+    global PORTRAIT, WIDTH, HEIGHT, BUILD_BAR_HEIGHT, WINDOW_MIN_W, WINDOW_MIN_H
+    global VIEW_ZOOM_MIN, VIEW_ZOOM_MAX
+
+    if portrait == PORTRAIT and (
+        (portrait and WIDTH == 540) or (not portrait and WIDTH == 960)
+    ):
+        _recompute_layout_constants()
+        return
+
+    PORTRAIT = portrait
+    if portrait:
+        WIDTH, HEIGHT = 540, 960
+        BUILD_BAR_HEIGHT = 76
+        WINDOW_MIN_W, WINDOW_MIN_H = 360, 640
+        VIEW_ZOOM_MIN = 0.68
+        VIEW_ZOOM_MAX = 1.38
+    else:
+        WIDTH, HEIGHT = 960, 640
+        BUILD_BAR_HEIGHT = 62
+        WINDOW_MIN_W, WINDOW_MIN_H = 640, 480
+        VIEW_ZOOM_MIN = 0.72
+        VIEW_ZOOM_MAX = 1.48
+    _recompute_layout_constants()
+
+
+_recompute_layout_constants()
 
 MAX_TOWER_FLOORS_DEFAULT = 10
 # 与 game/iso.py 中 TOWER_LAYER_STEP 一致

@@ -7,6 +7,7 @@ import json
 import pygame
 
 import config
+from game.layout import init_layout
 from game.platform_util import is_web
 
 _SETTINGS_PATH = config.ROOT / "display.json"
@@ -17,6 +18,8 @@ class DisplayManager:
     """渲染到固定逻辑画布，再按比例缩放至窗口（保持宽高比）。"""
 
     def __init__(self) -> None:
+        if is_web():
+            init_layout()
         self.design_w = config.WIDTH
         self.design_h = config.HEIGHT
         self.fullscreen = False
@@ -128,6 +131,8 @@ class DisplayManager:
                 import platform as pw
 
                 pw.window.window_resize()
+                if config.PORTRAIT:
+                    pw.document.body.style.margin = "0"
             except Exception:
                 pass
             return

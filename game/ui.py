@@ -69,11 +69,11 @@ class UI:
     def __init__(self, sprites: SpriteBank) -> None:
         self.sprites = sprites
         self.f_xs = get_font(15)
-        self.f_sm = get_font(18)
-        self.f_md = get_font(22)
-        self.f_lg = get_font(28)
-        self.f_title = get_font(36)
-        self._build_bar_h = 62
+        self.f_sm = get_font(18 if not config.PORTRAIT else 17)
+        self.f_md = get_font(22 if not config.PORTRAIT else 20)
+        self.f_lg = get_font(28 if not config.PORTRAIT else 24)
+        self.f_title = get_font(36 if not config.PORTRAIT else 30)
+        self._build_bar_h = config.BUILD_BAR_HEIGHT
         self._bg_tile = sprites.get("bg_tile")
         self._bg_tile_alt = sprites.get("bg_tile_alt") or self._bg_tile
 
@@ -246,18 +246,27 @@ class UI:
 
     def _menu_button_y(self, has_save: bool) -> int:
         """主菜单按钮区起始 Y，与 draw_menu 布局一致。"""
-        return 200
+        return 280 if config.PORTRAIT else 200
 
     meta_shop_scroll: int = 0
-    META_SHOP_TOP = 118
-    META_SHOP_ITEM_H = 68
-    META_SHOP_VIEW_H = 430
+
+    @property
+    def META_SHOP_TOP(self) -> int:
+        return 100 if config.PORTRAIT else 118
+
+    @property
+    def META_SHOP_ITEM_H(self) -> int:
+        return 64 if config.PORTRAIT else 68
+
+    @property
+    def META_SHOP_VIEW_H(self) -> int:
+        return max(280, config.HEIGHT - 200) if config.PORTRAIT else 430
 
     def draw_menu(self, surf: pygame.Surface, meta: MetaProgress, has_save: bool = False) -> None:
         self._draw_bg(surf)
         cx = config.WIDTH // 2
         title = self.f_title.render("叠层防线", True, (255, 220, 120))
-        surf.blit(title, title.get_rect(center=(cx, 100)))
+        surf.blit(title, title.get_rect(center=(cx, 88 if config.PORTRAIT else 100)))
 
         y = self._menu_button_y(has_save)
         if has_save:
@@ -586,10 +595,12 @@ class UI:
         self._draw_explosions(surf, game)
 
     def buff_panel_rect(self) -> pygame.Rect:
+        if config.PORTRAIT:
+            return pygame.Rect(12, 96, config.WIDTH - 24, config.HEIGHT - 200)
         return pygame.Rect(config.WIDTH // 2 - 220, 72, 440, config.HEIGHT - 160)
 
     def buff_panel_btn_rect(self) -> pygame.Rect:
-        return pygame.Rect(config.WIDTH - 108, 12, 96, 28)
+        return pygame.Rect(config.WIDTH - 100, 10, 88, 30)
 
     def buff_panel_hit(self, mx: int, my: int, game: GameSession) -> bool:
         """点击面板外或关闭区则关闭。"""
@@ -622,9 +633,10 @@ class UI:
         blit_in_rect(surf, self.f_sm, hint_txt, foot_r, (150, 160, 175), align="center", pad=2)
 
     def draw_hud(self, surf: pygame.Surface, game: GameSession) -> None:
-        pygame.draw.rect(surf, (40, 40, 50), pygame.Rect(12, 12, 200, 14))
+        bar_w = min(200, config.WIDTH - 118) if config.PORTRAIT else 200
+        pygame.draw.rect(surf, (40, 40, 50), pygame.Rect(12, 12, bar_w, 14))
         hr = max(0, game.base.hp / max(1, game.base.max_hp))
-        pygame.draw.rect(surf, (70, 200, 120), pygame.Rect(12, 12, int(200 * hr), 14))
+        pygame.draw.rect(surf, (70, 200, 120), pygame.Rect(12, 12, int(bar_w * hr), 14))
         surf.blit(
             self.f_sm.render(
                 f"地基 {int(game.base.hp)}/{int(game.base.max_hp)}  "
@@ -657,9 +669,10 @@ class UI:
             (12, 52),
         )
         exp_need = game.xp_to_next()
-        pygame.draw.rect(surf, (40, 40, 50), pygame.Rect(12, 76, 180, 8))
+        exp_w = min(180, bar_w - 20)
+        pygame.draw.rect(surf, (40, 40, 50), pygame.Rect(12, 76, exp_w, 8))
         er = min(1, game.exp / max(1, exp_need))
-        pygame.draw.rect(surf, (120, 160, 255), pygame.Rect(12, 76, int(180 * er), 8))
+        pygame.draw.rect(surf, (120, 160, 255), pygame.Rect(12, 76, int(exp_w * er), 8))
         surf.blit(self.f_sm.render(f"经验 {game.exp}/{exp_need}", True, (180, 190, 210)), (12, 88))
         if game.stats.double_shot_chance > 0:
             pct = int(min(100, game.stats.double_shot_chance * 100))
@@ -689,8 +702,8 @@ class UI:
 
     def _build_bar_slots(self, game: GameSession) -> list[dict]:
         y = self.build_bar_y()
-        x0 = 12
-        slot_w, slot_h = 124, 50
+        x0 = 8
+        slot_w, slot_h = (108, 48) if config.PORTRAIT else (124, 50)
         slots = []
         for tid in game.build_bar_types():
             rect = pygame.Rect(x0, y + 7, slot_w, slot_h)
@@ -789,18 +802,34 @@ class UI:
                 return ("select", slot["id"])
         return ("none", None)
 
+    def _upgrade_card_layout(self, count: int) -> tuple[int, int, int, int, int]:
+        if config.PORTRAIT:
+            card_w, card_h, gap, cols = 230, 200, 12, 2
+            grid_w = cols * card_w + (cols - 1) * gap
+            x0 = (config.WIDTH - grid_w) // 2
+            y0 = 118
+            return card_w, card_h, gap, x0, y0
+        card_w, card_h, gap = 200, 248, 16
+        x0 = (config.WIDTH - (4 * card_w + 3 * gap)) // 2
+        return card_w, card_h, gap, x0, 132
+
     def draw_upgrade_overlay(self, surf: pygame.Surface, game: GameSession) -> None:
         overlay = pygame.Surface((config.WIDTH, config.HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         surf.blit(overlay, (0, 0))
         t = self.f_title.render("经验已满 — 选择一项强化", True, (255, 220, 120))
-        surf.blit(t, t.get_rect(center=(config.WIDTH // 2, 80)))
-        card_w, card_h = 200, 248
-        gap = 16
-        x0 = (config.WIDTH - (4 * card_w + 3 * gap)) // 2
-        y0 = 132
+        surf.blit(t, t.get_rect(center=(config.WIDTH // 2, 72 if config.PORTRAIT else 80)))
+        card_w, card_h, gap, x0, y0 = self._upgrade_card_layout(len(game.upgrade_choices))
+        cols = 2 if config.PORTRAIT else 4
         for i, card in enumerate(game.upgrade_choices):
-            rect = pygame.Rect(x0 + i * (card_w + gap), y0, card_w, card_h)
+            col = i % cols
+            row = i // cols
+            rect = pygame.Rect(
+                x0 + col * (card_w + gap),
+                y0 + row * (card_h + gap),
+                card_w,
+                card_h,
+            )
             border = {
                 "base": (80, 200, 140),
                 "tower": (90, 160, 220),
@@ -840,18 +869,24 @@ class UI:
                 blit_wrapped(surf, self.f_sm, card["desc"], desc_r, (180, 185, 200), pad=2)
 
     def upgrade_card_hit(self, mx: int, my: int, game: GameSession) -> int | None:
-        card_w, card_h = 200, 248
-        gap = 16
-        x0 = (config.WIDTH - (4 * card_w + 3 * gap)) // 2
-        y0 = 132
+        card_w, card_h, gap, x0, y0 = self._upgrade_card_layout(len(game.upgrade_choices))
+        cols = 2 if config.PORTRAIT else 4
         for i in range(len(game.upgrade_choices)):
-            rect = pygame.Rect(x0 + i * (card_w + gap), y0, card_w, card_h)
+            col = i % cols
+            row = i // cols
+            rect = pygame.Rect(
+                x0 + col * (card_w + gap),
+                y0 + row * (card_h + gap),
+                card_w,
+                card_h,
+            )
             if rect.collidepoint(mx, my):
                 return i
         return None
 
     def _endless_offer_layout(self) -> tuple[pygame.Rect, pygame.Rect, pygame.Rect]:
-        panel = pygame.Rect(config.WIDTH // 2 - 220, config.HEIGHT // 2 - 118, 440, 236)
+        pw, ph = (config.WIDTH - 32, 236) if config.PORTRAIT else (440, 236)
+        panel = pygame.Rect(config.WIDTH // 2 - pw // 2, config.HEIGHT // 2 - ph // 2, pw, ph)
         btn_w, btn_h, gap = 168, 44, 20
         y = panel.bottom - 16 - btn_h
         x0 = panel.centerx - btn_w - gap // 2
