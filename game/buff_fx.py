@@ -242,6 +242,7 @@ def draw_tower_buff_glows(surf: pygame.Surface, game: "GameSession") -> None:
             pygame.draw.ellipse(surf, (120, 220, 180), rect.inflate(6, 4), 2)
         if tower.type_id == "mint" and (
             s.mint_yield_mult > 0
+            or s.mint_hoard_mult > 0
             or s.mint_rate_mult > 0
             or s.mint_range_mult > 0
             or s.mint_cap_mult > 0

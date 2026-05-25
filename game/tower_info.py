@@ -33,6 +33,7 @@ from game.wind_combat import (
     wind_range,
 )
 from game.mint_combat import (
+    MINT_HOARD_MIN_ENEMIES,
     calc_mint_gold,
     count_enemies_in_mint_range,
     mint_interval,
@@ -152,6 +153,11 @@ def _mint_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None"
             f"当前射程内 {n} 敌 · 下次约 +{est} 金",
             f"每名敌人 +{per:.1f} 金 · 基础上限 {cap:.0f}",
         ]
+        if game.stats.mint_hoard_mult > 0:
+            lines.append(
+                f"囤积红利：>{MINT_HOARD_MIN_ENEMIES}敌后每多1名 +"
+                f"{per * game.stats.mint_hoard_mult:.1f} 金"
+            )
     else:
         lines = [
             "伤害 无（产金）",
@@ -160,6 +166,10 @@ def _mint_stat_lines(game: "GameSession", tdef: dict, tower: "TowerFloor | None"
             f"基础 {base:.0f} + 每名敌人 {per:.1f} 金",
             f"单次上限 {cap:.0f}（无敌人时收益很低）",
         ]
+        if game.stats.mint_hoard_mult > 0:
+            lines.append(
+                f"囤积：超过{MINT_HOARD_MIN_ENEMIES}名敌人后，每多1名额外产金"
+            )
     return lines
 
 

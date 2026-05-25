@@ -34,6 +34,7 @@ class RunStats:
         self.barracks_max_guards_bonus = 0
         self.barracks_spawn_count_bonus = 0
         self.mint_yield_mult = 0.0
+        self.mint_hoard_mult = 0.0
         self.mint_rate_mult = 0.0
         self.mint_range_mult = 0.0
         self.mint_cap_mult = 0.0

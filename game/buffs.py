@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from game.mint_combat import MINT_HOARD_MIN_ENEMIES
 from game.tower_labels import tower_damage_label
 
 if TYPE_CHECKING:
@@ -125,7 +126,11 @@ def _numeric_summary(game: "GameSession") -> list[str]:
     if s.barracks_spawn_count_bonus:
         out.append(f"每次多召 +{s.barracks_spawn_count_bonus} 护卫")
     if s.mint_yield_mult:
-        out.append(f"钱塔产金 +{int(s.mint_yield_mult * 100)}%")
+        out.append(f"赏金税 +{int(s.mint_yield_mult * 100)}%（每名敌人）")
+    if s.mint_hoard_mult:
+        out.append(
+            f"囤积红利 +{int(s.mint_hoard_mult * 100)}%/人（>{MINT_HOARD_MIN_ENEMIES}敌后）"
+        )
     if s.mint_rate_mult:
         out.append(f"钱塔结算加速 +{int(s.mint_rate_mult * 100)}%")
     if s.mint_range_mult:

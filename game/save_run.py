@@ -80,6 +80,7 @@ def _stats_to_dict(stats) -> dict:
         "barracks_max_guards_bonus": stats.barracks_max_guards_bonus,
         "barracks_spawn_count_bonus": stats.barracks_spawn_count_bonus,
         "mint_yield_mult": stats.mint_yield_mult,
+        "mint_hoard_mult": stats.mint_hoard_mult,
         "mint_rate_mult": stats.mint_rate_mult,
         "mint_range_mult": stats.mint_range_mult,
         "mint_cap_mult": stats.mint_cap_mult,
