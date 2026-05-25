@@ -140,7 +140,15 @@ def effective_layer_step() -> float:
     return TOWER_LAYER_STEP * _stack_scale
 
 
-
+def stack_anchor_logical(total_floors: int) -> tuple[float, float]:
+    """塔堆几何中心（逻辑屏幕坐标，未乘视角变换）。"""
+    cx = float(config.BASE_X)
+    if total_floors <= 0:
+        return cx, float(config.BASE_Y)
+    foundation_top = config.BASE_Y - FOUNDATION_TO_TOWER1
+    top_cy = foundation_top - (total_floors - 1) * effective_layer_step()
+    cy = (config.BASE_Y + top_cy) / 2.0
+    return cx, cy
 
 
 def scaled_size(base: int, minimum: int = 8) -> int:

@@ -450,4 +450,5 @@ def load_saved_session(
         on_sound=on_sound,
     )
     load_run_into(g, data)
+    g._stack_focus_floors = len(g.towers)
     return g

@@ -21,7 +21,7 @@ from game.wind_combat import (
 from game.wind_fx import on_wind_gust_visual
 from game.effects import ExplosionFx
 from game.barracks_combat import barracks_spawn_interval, spawn_guards_from_barracks
-from game.camera import camera_apply, reset_view, view_zoom
+from game.camera import camera_apply, focus_on_stack, reset_view, view_zoom
 from game.iso import iso_angle
 from game.entities import Base, Bullet, Enemy, Guard, TowerFloor, dist, find_target
 from game.unit_combat import prune_guards, update_enemy_combat, update_guard_combat
@@ -139,6 +139,7 @@ class GameSession:
         self.world_fx: list = []
         self._regen_fx_cd = 0.0
         reset_view()
+        self._stack_focus_floors = -1
 
         self.max_tower_floors = config.MAX_TOWER_FLOORS_DEFAULT + me.get("max_layers_bonus", 0)
         stat_effect = me.get("stat_effect") or {}
@@ -295,7 +296,11 @@ class GameSession:
                 self.toast_message = ""
 
     def _sync_stack_layout(self) -> None:
-        refresh_stack_layout(len(self.towers), build_bar_h=config.BUILD_BAR_HEIGHT)
+        n = len(self.towers)
+        refresh_stack_layout(n, build_bar_h=config.BUILD_BAR_HEIGHT)
+        if n != self._stack_focus_floors:
+            self._stack_focus_floors = n
+            focus_on_stack(n)
 
     def _tower_pick_metrics(self) -> tuple[float, float, float]:
         """返回 (view_zoom, stack_scale, layer_step_px)。"""

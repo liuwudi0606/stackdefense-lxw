@@ -259,6 +259,17 @@ async def _main_async() -> None:
                         continue
                     if ui.update_build_bar_scroll_drag(game, gpos[0]):
                         continue
+                    if (
+                        not game.build_drag
+                        and game.state == GameState.PLAYING
+                        and not game.debug_menu_open
+                        and not game.buff_panel_open
+                        and gpos[1] < ui.build_bar_y(game) - 6
+                    ):
+                        from game.camera import update_drag_pan
+
+                        if update_drag_pan(gpos[0], gpos[1]):
+                            continue
                     if game.scroll_drag:
                         if game.scroll_drag.kind.startswith("debug"):
                             if debug_ui.update_scroll_drag(game, gpos[1], ui.f_sm):
@@ -267,6 +278,9 @@ async def _main_async() -> None:
                             continue
 
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1 and game:
+                from game.camera import end_drag_pan
+
+                end_drag_pan()
                 ui.end_scroll_drag(game)
                 ui.end_build_bar_scroll_drag()
                 if app_state == AppState.PLAYING and game.build_drag:
